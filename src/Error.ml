@@ -1,10 +1,10 @@
 type t =
   | Overlapping_Syntax
-  | Unhandled_Statement of int
+  | Unhandled_Statement  of int
   | Unhandled_Expression of int
-  | NotEcmaScript5 of string * int
-  | UnusedAnnotations of string list * int
-  | FlowParser of string * string
+  | NotEcmaScript5       of string * int
+  | UnusedAnnotations    of string list * int
+  | FlowParser           of string * string
 
 let str = function
   | Overlapping_Syntax ->
@@ -23,10 +23,10 @@ let str = function
   | NotEcmaScript5 (s, i) -> Printf.sprintf "%s at offset %d" s i
   | UnusedAnnotations (sl, i) ->
       Printf.sprintf
-        "At offset %d, the following annotations could not be placed in the \
-         AST:\n\
+        "At offset %d, the following annotations could not be placed in the AST:\n\
          %s"
         i (String.concat "\n" sl)
-  | FlowParser (msg, error_type) -> Printf.sprintf "Flow_parser failed: %s: %s" msg error_type
+  | FlowParser (msg, error_type) ->
+      Printf.sprintf "Flow_parser failed: %s: %s" msg error_type
 
 exception ParserError of t
