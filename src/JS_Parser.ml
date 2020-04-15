@@ -15,10 +15,6 @@ let parse_string_exn
   let flow_prog, errors =
     Flow_parser.Parser_flow.program_file ~fail:false ~parse_options prog None
   in
-  let _ =
-    if Option.is_none program_path then flow_prog
-    else Modules.preprocess_as_module (Option.get program_path) flow_prog
-  in
   if List.length errors > 0 then
     let pretty_messages =
       List.map
@@ -40,6 +36,10 @@ let parse_string_exn
     in
     raise (Error.ParserError (Error.FlowParser (messages, error_type)))
   else
+    let flow_prog =
+      if Option.is_none program_path then flow_prog
+      else Modules.preprocess_as_module (Option.get program_path) flow_prog
+    in
     let trans_prog =
       OfFlow.transform_program ~parse_annotations ~parent_strict:force_strict
         flow_prog
