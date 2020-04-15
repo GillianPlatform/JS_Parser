@@ -27,7 +27,11 @@ module Error : sig
 end
 
 val parse_string_exn :
-  ?parse_annotations:bool -> ?force_strict:bool -> string -> Syntax.exp
+  ?parse_annotations:bool ->
+  ?force_strict:bool ->
+  ?program_path:string ->
+  string ->
+  Syntax.exp
 (** [parse_string_exn ~parse_annotations ~force_strict prog] parses the given string as a program.
     The string given should be the entire program.
     If [parse_annotations] is set to false the possible JS_Logic annotations in the comments will not be parse. It is true by default.
@@ -37,6 +41,7 @@ val parse_string_exn :
 val parse_string :
   ?parse_annotations:bool ->
   ?force_strict:bool ->
+  ?program_path:string ->
   string ->
   (Syntax.exp, Error.t) result
 (** Same as [parse_string_exn] except that it returns a result instead of raising an error. *)

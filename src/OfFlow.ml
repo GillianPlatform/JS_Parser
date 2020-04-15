@@ -1207,7 +1207,7 @@ and transform_case ~parent_strict annots case =
   let test_end, trans_test =
     match test with
     | None         ->
-        (* `default` is of length  7*)
+        (* `default` is of length 7 *)
         let test_end = char_plus lcase 7 in
         let trans_test = DefaultCase in
         (test_end, trans_test)
@@ -1224,6 +1224,7 @@ and transform_case ~parent_strict annots case =
   (trans_test, mk_exp (Block trans_cons) (offset test_end) [])
 
 and trans_stmt_list ~parent_strict start_loc raw_stmts annots =
+  (* List.iter (fun (loc, _) -> print_endline (Loc.to_string loc)) annots; *)
   let stmts_with_start_loc = with_start_loc start_loc raw_stmts in
   let trans_stmt (st_l, (lloc, s)) =
     let children_annotations =
