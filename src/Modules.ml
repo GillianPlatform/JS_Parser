@@ -1,7 +1,15 @@
 open Flow_parser.Ast
+open Batteries.Incubator
 module Loc = Flow_parser.Loc
 
 type loc = Loc.t
+
+module Path = PathGen.OfString
+
+let normalize_path path_str =
+  let path = Path.of_string path_str in
+  let normalized_path = Path.normalize_in_tree path in
+  Path.to_string normalized_path
 
 module Constants = struct
   let require_f = "require"
@@ -37,7 +45,7 @@ let resolve_require_args
         if Filename.extension path = "" then path ^ ".js" else path
       in
       let full_path = Filename.concat dirname path_with_ext in
-      if Sys.file_exists full_path then Ok full_path
+      if Sys.file_exists full_path then Ok (normalize_path full_path)
       else Error (Printf.sprintf "could not resolve module '%s'" path)
     else
       (* Global module, e.g. located in node_modules *)
@@ -296,6 +304,7 @@ and resolve_expressions prog_path (expressions : loc Expression.t list) =
 
 let preprocess_as_module program_path prog =
   let loc, statements, comments = prog in
+  let prog_path = normalize_path program_path in
   (* Resolve any require() calls *)
-  let resolved_stats = resolve_statements program_path statements in
+  let resolved_stats = resolve_statements prog_path statements in
   (loc, resolved_stats, comments)

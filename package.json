@@ -17,7 +17,8 @@
   "dependencies": {
     "@esy-ocaml/flow-parser": "giltho/flow-parser#3a0fae6923e78f",
     "@opam/dune": "*",
-    "ocaml": ">=4.6.0"
+    "ocaml": ">=4.6.0",
+    "@opam/batteries": "3.0.0"
   },
   "devDependencies": {
     "@opam/merlin": "*",
