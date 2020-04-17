@@ -26,3 +26,11 @@ let map f (xs : 'a list) =
       let a, bs = f x in
       (a :: acc_a, bs @ acc_b))
     ([], []) xs
+
+let load_file path : string =
+  let in_chan = open_in path in
+  let chan_len = in_channel_length in_chan in
+  let buffer = Bytes.create chan_len in
+  really_input in_chan buffer 0 chan_len;
+  close_in in_chan;
+  Bytes.to_string buffer

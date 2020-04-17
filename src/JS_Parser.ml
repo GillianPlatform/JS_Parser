@@ -13,7 +13,7 @@ let parse_string_exn
         { default_parse_options with types = false; use_strict = force_strict }
   in
   let flow_prog, errors =
-    Flow_parser.Parser_flow.program_file ~fail:false ~parse_options prog None
+    Flow_parser.Parser_flow.program ~fail:false ~parse_options prog
   in
   if List.length errors > 0 then
     let pretty_messages =
@@ -44,6 +44,7 @@ let parse_string_exn
       OfFlow.transform_program ~parse_annotations ~parent_strict:force_strict
         flow_prog
     in
+    print_endline (PrettyPrint.string_of_exp false trans_prog);
     trans_prog
 
 let parse_string
