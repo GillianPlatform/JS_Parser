@@ -1,4 +1,5 @@
 open Flow_parser.Ast
+open Utils
 module Loc = Flow_parser.Loc
 
 type loc = Loc.t
@@ -19,10 +20,14 @@ module Constants = struct
   let loading = "LOADING"
 
   let loaded = "LOADED"
+
+  let runtime_path = "JS_PARSER_RUNTIME_PATH"
+
+  let preamble_file = "preamble.js"
 end
 
-let rloc : loc =
-  (* An arbitrary location, used as a placeholder within nodes *)
+let rloc () : loc =
+  (* Generate an arbitrary location *)
   {
     source = None;
     start = { line = -1; column = -1; offset = -1 };
@@ -32,24 +37,24 @@ let rloc : loc =
 let lit_of_string str : Literal.t =
   { value = String str; raw = Printf.sprintf "\"%s\"" str }
 
-let ident_of_string str : loc Identifier.t = (rloc, str)
+let ident_of_string str : loc Identifier.t = (rloc (), str)
 
 let expr_of_lit_str str : loc Expression.t =
-  (rloc, Expression.Literal (lit_of_string str))
+  (rloc (), Expression.Literal (lit_of_string str))
 
 let expr_of_ident_str str : loc Expression.t =
-  (rloc, Expression.Identifier (ident_of_string str))
+  (rloc (), Expression.Identifier (ident_of_string str))
 
 let pattern_of_ident (ident : loc Identifier.t) : loc Pattern.t =
-  (rloc, Pattern.Identifier { name = ident; annot = None; optional = false })
+  (rloc (), Pattern.Identifier { name = ident; annot = None; optional = false })
 
-let pattern_of_expr expr : loc Pattern.t = (rloc, Pattern.Expression expr)
+let pattern_of_expr expr : loc Pattern.t = (rloc (), Pattern.Expression expr)
 
 let expr_or_spr_of_expr expr : loc Expression.expression_or_spread =
   Expression expr
 
 let assign_expr left right : loc Expression.t =
-  (rloc, Expression.Assignment { operator = Assign; left; right })
+  (rloc (), Expression.Assignment { operator = Assign; left; right })
 
 (** Generates: 
     _module = new Module(<filename>, <dirname>); *)
@@ -61,9 +66,9 @@ let module_init_stat filename dirname : loc Statement.t =
       (fun arg -> expr_or_spr_of_expr (expr_of_lit_str arg))
       [ filename; dirname ]
   in
-  let right = (rloc, Expression.New { callee; targs = None; arguments }) in
+  let right = (rloc (), Expression.New { callee; targs = None; arguments }) in
   let expression = assign_expr left right in
-  (rloc, Statement.Expression { expression; directive = None })
+  (rloc (), Statement.Expression { expression; directive = None })
 
 (** Generates:
     _cache[<filename>] = _module; *)
@@ -73,12 +78,12 @@ let module_cache_stat filename : loc Statement.t =
     Expression.Member.PropertyExpression (expr_of_lit_str filename)
   in
   let member_expr =
-    (rloc, Expression.Member { _object; property; computed = true })
+    (rloc (), Expression.Member { _object; property; computed = true })
   in
   let left = pattern_of_expr member_expr in
   let right = expr_of_ident_str Constants.module_var in
   let expression = assign_expr left right in
-  (rloc, Statement.Expression { expression; directive = None })
+  (rloc (), Statement.Expression { expression; directive = None })
 
 (** Generates:
     module.status = <status>; *)
@@ -88,12 +93,12 @@ let module_status_stat status : loc Statement.t =
     Expression.Member.PropertyIdentifier (ident_of_string "status")
   in
   let member_expr =
-    (rloc, Expression.Member { _object; property; computed = false })
+    (rloc (), Expression.Member { _object; property; computed = false })
   in
   let left = pattern_of_expr member_expr in
   let right = expr_of_lit_str status in
   let expression = assign_expr left right in
-  (rloc, Statement.Expression { expression; directive = None })
+  (rloc (), Statement.Expression { expression; directive = None })
 
 let start_load_stat = module_status_stat Constants.loading
 
@@ -104,10 +109,10 @@ let func_of_stat_list stat_list param_list : loc Function.t =
   let params =
     List.map (fun param -> pattern_of_ident (ident_of_string param)) param_list
   in
-  let body = BodyBlock (rloc, { body = stat_list }) in
+  let body = BodyBlock (rloc (), { body = stat_list }) in
   {
     id = None;
-    params = (rloc, { params; rest = None });
+    params = (rloc (), { params; rest = None });
     body;
     async = false;
     generator = false;
@@ -125,7 +130,7 @@ let func_of_stat_list stat_list param_list : loc Function.t =
     })(_module.exports, _module, _module.filename, _module.dirname); *)
 let immediate_module_load_stat module_body : loc Statement.t =
   let func = func_of_stat_list module_body Constants.module_params in
-  let func_expr = (rloc, Expression.Function func) in
+  let func_expr = (rloc (), Expression.Function func) in
   let arguments =
     List.map
       (fun arg -> expr_or_spr_of_expr (expr_of_ident_str arg))
@@ -137,9 +142,9 @@ let immediate_module_load_stat module_body : loc Statement.t =
       ]
   in
   let call_expr =
-    (rloc, Expression.Call { callee = func_expr; targs = None; arguments })
+    (rloc (), Expression.Call { callee = func_expr; targs = None; arguments })
   in
-  (rloc, Statement.Expression { expression = call_expr; directive = None })
+  (rloc (), Statement.Expression { expression = call_expr; directive = None })
 
 (** Generates:
     _module.load = function (exports, module, __filename, __dirname) {
@@ -153,10 +158,19 @@ let module_load_stat module_body : loc Statement.t =
     Expression.Member.PropertyIdentifier (ident_of_string "load")
   in
   let member_expr =
-    (rloc, Expression.Member { _object; property; computed = false })
+    (rloc (), Expression.Member { _object; property; computed = false })
   in
   let left = pattern_of_expr member_expr in
   let func = func_of_stat_list module_body Constants.module_params in
-  let func_expr = (rloc, Expression.Function func) in
+  let func_expr = (rloc (), Expression.Function func) in
   let expression = assign_expr left func_expr in
-  (rloc, Statement.Expression { expression; directive = None })
+  (rloc (), Statement.Expression { expression; directive = None })
+
+let preamble_file_path () =
+  let runtime_dir = Sys.getenv Constants.runtime_path in
+  Filename.concat runtime_dir Constants.preamble_file
+
+let module_preamble =
+  let prog_string = load_file (preamble_file_path ()) in
+  let flow_prog, _ = Flow_parser.Parser_flow.program prog_string in
+  flow_prog

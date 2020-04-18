@@ -31,7 +31,7 @@ let resolve_require_args
       in
       let full_path = Filename.concat dirname path_with_ext in
       if Sys.file_exists full_path then Ok (normalize_path full_path)
-      else Error (Printf.sprintf "could not resolve module '%s'" path)
+      else Error (Printf.sprintf "could not resolve module \"%s\"" path)
     else
       (* Global module, e.g. located in node_modules *)
       Error "cannot import global modules"
@@ -346,14 +346,13 @@ let augment statements filename is_main =
 
 let combine prog_a prog_b =
   let loc_a, stats_a, cmnt_a = prog_a in
-  let _, stats_b, cmnts_b = prog_b in
-  (loc_a, stats_a @ stats_b, cmnt_a @ cmnts_b)
+  let loc_b, stats_b, cmnts_b = prog_b in
+  let combined_loc =
+    Loc.{ source = None; start = loc_a.start; _end = loc_b._end }
+  in
+  (combined_loc, stats_a @ stats_b, cmnt_a @ cmnts_b)
 
 let preprocess_as_module program_path prog =
-  let loc, statements, cmnts = prog in
-  let prog_path = normalize_path program_path in
-  let resolved_stats, req_paths = resolve_statements prog_path statements in
-  let augmented_stats = augment resolved_stats prog_path true in
   let rec resolve_modules required_paths added_paths combined_prog =
     match required_paths with
     | []           -> combined_prog
@@ -372,4 +371,12 @@ let preprocess_as_module program_path prog =
           resolve_modules new_required new_added combined_prog
         else resolve_modules rest added_paths combined_prog
   in
-  resolve_modules req_paths Str_set.empty (loc, augmented_stats, cmnts)
+  (* Preprocess the main module *)
+  let loc, statements, cmnts = prog in
+  let prog_path = normalize_path program_path in
+  let resolved_stats, req_paths = resolve_statements prog_path statements in
+  let augmented_stats = augment resolved_stats prog_path true in
+  let main_prog = (loc, augmented_stats, cmnts) in
+  (* Preprocess any required modules and combine them into one program *)
+  let final_prog = resolve_modules req_paths Str_set.empty main_prog in
+  combine module_preamble final_prog

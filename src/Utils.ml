@@ -11,7 +11,13 @@ let begins_with str prefix =
   let prefix_len = String.length prefix in
   prefix_len <= str_len && String.sub str 0 prefix_len = prefix
 
-module Str_set = Set.Make (String)
+let load_file path : string =
+  let in_chan = open_in path in
+  let chan_len = in_channel_length in_chan in
+  let buffer = Bytes.create chan_len in
+  really_input in_chan buffer 0 chan_len;
+  close_in in_chan;
+  Bytes.to_string buffer
 
 let opt_map f (x : 'a option) =
   match x with
@@ -27,10 +33,4 @@ let map f (xs : 'a list) =
       (a :: acc_a, bs @ acc_b))
     ([], []) xs
 
-let load_file path : string =
-  let in_chan = open_in path in
-  let chan_len = in_channel_length in_chan in
-  let buffer = Bytes.create chan_len in
-  really_input in_chan buffer 0 chan_len;
-  close_in in_chan;
-  Bytes.to_string buffer
+module Str_set = Set.Make (String)

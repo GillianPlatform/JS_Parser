@@ -5,7 +5,13 @@
   "license": "MIT",
   "esy": { 
     "build": [ [ "dune", "build", "-p", "JS_Parser" ] ], 
-    "buildsInSource": "_build" 
+    "buildsInSource": "_build",
+    "exportedEnv": {
+      "JS_PARSER_RUNTIME_PATH": {
+        "scope": "global",
+        "val": "#{self.share}/JS_Parser"
+      }
+    }
   },
   "scripts": {
     "test": "esy dune runtest",
