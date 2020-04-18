@@ -56,6 +56,11 @@ let expr_or_spr_of_expr expr : loc Expression.expression_or_spread =
 let assign_expr left right : loc Expression.t =
   (rloc (), Expression.Assignment { operator = Assign; left; right })
 
+let member_expr_of_noncomputed obj prop : loc Expression.t =
+  let _object = expr_of_ident_str obj in
+  let property = Expression.Member.PropertyIdentifier (ident_of_string prop) in
+  (rloc (), Expression.Member { _object; property; computed = false })
+
 (** Generates: 
     _module = new Module(<filename>, <dirname>); *)
 let module_init_stat filename dirname : loc Statement.t =
@@ -88,13 +93,7 @@ let module_cache_stat filename : loc Statement.t =
 (** Generates:
     module.status = <status>; *)
 let module_status_stat status : loc Statement.t =
-  let _object = expr_of_ident_str "module" in
-  let property =
-    Expression.Member.PropertyIdentifier (ident_of_string "status")
-  in
-  let member_expr =
-    (rloc (), Expression.Member { _object; property; computed = false })
-  in
+  let member_expr = member_expr_of_noncomputed "module" "status" in
   let left = pattern_of_expr member_expr in
   let right = expr_of_lit_str status in
   let expression = assign_expr left right in
@@ -132,13 +131,12 @@ let immediate_module_load_stat module_body : loc Statement.t =
   let func = func_of_stat_list module_body Constants.module_params in
   let func_expr = (rloc (), Expression.Function func) in
   let arguments =
-    List.map
-      (fun arg -> expr_or_spr_of_expr (expr_of_ident_str arg))
+    List.map expr_or_spr_of_expr
       [
-        Constants.module_var ^ ".exports";
-        Constants.module_var;
-        Constants.module_var ^ ".filename";
-        Constants.module_var ^ ".dirname";
+        member_expr_of_noncomputed Constants.module_var "exports";
+        expr_of_ident_str Constants.module_var;
+        member_expr_of_noncomputed Constants.module_var "filename";
+        member_expr_of_noncomputed Constants.module_var "dirname";
       ]
   in
   let call_expr =
@@ -153,13 +151,7 @@ let immediate_module_load_stat module_body : loc Statement.t =
         ...
     }; *)
 let module_load_stat module_body : loc Statement.t =
-  let _object = expr_of_ident_str Constants.module_var in
-  let property =
-    Expression.Member.PropertyIdentifier (ident_of_string "load")
-  in
-  let member_expr =
-    (rloc (), Expression.Member { _object; property; computed = false })
-  in
+  let member_expr = member_expr_of_noncomputed Constants.module_var "load" in
   let left = pattern_of_expr member_expr in
   let func = func_of_stat_list module_body Constants.module_params in
   let func_expr = (rloc (), Expression.Function func) in
