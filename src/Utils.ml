@@ -30,7 +30,7 @@ let map f (xs : 'a list) =
   List.fold_left
     (fun (acc_a, acc_b) x ->
       let a, bs = f x in
-      (a :: acc_a, bs @ acc_b))
+      (acc_a @ [ a ], acc_b @ bs))
     ([], []) xs
 
 module Str_set = Set.Make (String)
