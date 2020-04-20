@@ -5,11 +5,12 @@ type t =
   | NotEcmaScript5       of string * int
   | UnusedAnnotations    of string list * int
   | FlowParser           of string * string
+  | LoaderError          of string * int * string * string
 
 let str = function
   | Overlapping_Syntax ->
       Printf.sprintf
-        "Something went wrong with the parser, some syntax is overlapping "
+        "Something went wrong with the parser, some syntax is overlapping"
   | Unhandled_Statement i ->
       Printf.sprintf
         "The statement at offset %d is not handled. Maybe because it is not \
@@ -28,5 +29,7 @@ let str = function
         i (String.concat "\n" sl)
   | FlowParser (msg, error_type) ->
       Printf.sprintf "Flow_parser failed: %s: %s" msg error_type
+  | LoaderError (path, line, func, msg) ->
+      Printf.sprintf "%s: line %d, function '%s':\n%s" path line func msg
 
 exception ParserError of t

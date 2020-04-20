@@ -1,5 +1,4 @@
 open Syntax
-open Utils
 
 module Constants = struct
   let module_obj = "Module"

@@ -1,5 +1,6 @@
 open Flow_parser.Ast
 open Utils
+open Error
 
 type loc = Flow_parser.Loc.t
 
@@ -31,14 +32,12 @@ let get_preamble () =
   let () = check_parsing_errors errors in
   OfFlow.transform_program ~parse_annotations:false ~force_strict:false prog
 
-let file_of_path path : Flow_parser.File_key.t option = Some (SourceFile path)
-
-exception Loader_error
+let file_of_path path : file option = Some (SourceFile path)
 
 let loader_error path (loc : loc) msg =
   let line_no = loc.start.line in
-  Printf.printf "%s: line %d, function 'require':\n%s\n" path line_no msg;
-  raise Loader_error
+  let require = SyntaxGenerator.Constants.require_f in
+  raise (ParserError (LoaderError (path, line_no, require, msg)))
 
 let get_or_raise_exn path loc (result : ('a, string) result) =
   match result with
@@ -386,7 +385,6 @@ let add_preamble exp_list : Syntax.exp =
   SyntaxGenerator.mk_exp (Script (false, preamble_exp_list @ exp_list))
 
 let parse_commonjs parse transform program_path program_string =
-  let open Flow_parser in
   let rec resolve_modules required_paths added_paths combined_prog =
     match required_paths with
     | []           -> combined_prog
