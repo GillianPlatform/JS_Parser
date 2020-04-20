@@ -1,9 +1,37 @@
 open Flow_parser.Ast
 open Utils
-open SyntaxGenerator
-module Loc = Flow_parser.Loc
 
-type loc = Loc.t
+type loc = Flow_parser.Loc.t
+
+type file = Flow_parser.File_key.t
+
+type error = Flow_parser.Parser_common.Error.t
+
+type parse_f = string -> file option -> loc program * (loc * error) list
+
+type transform_f = loc program -> Syntax.exp
+
+module Config = struct
+  let runtime_path = "JS_PARSER_RUNTIME_PATH"
+
+  let preamble_file = "preamble.js"
+end
+
+let unfold_prog prog =
+  let Syntax.{ exp_stx; _ } = prog in
+  match exp_stx with
+  | Syntax.Script (use_strict, exp_list) -> (use_strict, exp_list)
+  | _ -> failwith "expected expression to be a Script"
+
+let get_preamble () =
+  let runtime_dir = Sys.getenv Config.runtime_path in
+  let preamble_path = Filename.concat runtime_dir Config.preamble_file in
+  let prog_string = load_file preamble_path in
+  let prog, errors = Flow_parser.Parser_flow.program ~fail:false prog_string in
+  let () = check_parsing_errors errors in
+  OfFlow.transform_program ~parse_annotations:false ~force_strict:false prog
+
+let file_of_path path : Flow_parser.File_key.t option = Some (SourceFile path)
 
 exception Loader_error
 
@@ -57,9 +85,6 @@ let resolve_require_args
   in
   get_or_raise_exn prog_path loc (resolve_args args)
 
-(** Functions to resolve the paths used in any require() calls within the JS
-    program, returning the modified AST (with all the paths having been checked
-    to exist and normalised) as well as the paths themselves. *)
 let rec resolve_statement prog_path (statement : loc Statement.t) =
   let open Statement in
   let loc, stat = statement in
@@ -143,7 +168,7 @@ and resolve_expression prog_path (expression : loc Expression.t) =
     match expr with
     | Call { callee; targs; arguments } -> (
         match callee with
-        | _, Identifier (_, id) when id = Constants.require_f ->
+        | _, Identifier (_, id) when id = SyntaxGenerator.Constants.require_f ->
             let arguments, req_path =
               resolve_require_args prog_path loc arguments
             in
@@ -329,54 +354,63 @@ and resolve_statements prog_path (statements : loc Statement.t list) =
 and resolve_expressions prog_path (expressions : loc Expression.t list) =
   map (resolve_expression prog_path) expressions
 
-(** Wrap the module code inside special syntax that hides its variables from
+(** Resolves the paths used in any require() calls within the program, returning
+    the modified AST (with all the paths having been checked to exist and 
+    normalised) as well as the paths themselves. *)
+let resolve_imports prog_path (prog : loc program) =
+  let loc, statements, cmnts = prog in
+  let resolved_stats, req_paths = resolve_statements prog_path statements in
+  ((loc, resolved_stats, cmnts), req_paths)
+
+(** Wraps the module code inside special syntax that hides its variables from
     the global scope and exposes it to the CommonJS [module] and [exports] 
     objects. *)
-let augment statements filename is_main =
+let augment exp_list use_strict filename is_main : Syntax.exp list =
   let open SyntaxGenerator in
   let dirname = Filename.dirname filename in
-  let module_init = module_init_stat filename dirname in
-  let cache_init = module_cache_stat filename in
-  let module_body = [ start_load_stat ] @ statements @ [ end_load_stat ] in
-  let load_stat =
-    if is_main then immediate_module_load_stat module_body
-    else module_load_stat module_body
+  let module_init = module_init_assign filename dirname in
+  let cache_init = module_cache_assign filename in
+  let module_body =
+    [ set_start_load_status ] @ exp_list @ [ set_end_load_satus ]
   in
-  [ module_init; cache_init; load_stat ]
-
-let combine prog_a prog_b =
-  let loc_a, stats_a, cmnt_a = prog_a in
-  let loc_b, stats_b, cmnts_b = prog_b in
-  let combined_loc =
-    Loc.{ source = None; start = loc_a.start; _end = loc_b._end }
+  let load =
+    if is_main then immediate_module_load use_strict module_body
+    else module_load_func use_strict module_body
   in
-  (combined_loc, stats_a @ stats_b, cmnt_a @ cmnts_b)
+  [ module_init; cache_init; load ]
 
-let preprocess_as_module program_path prog =
+(** Add the code which, among other things, provides the definiton of the 
+    global [require] function. *)
+let add_preamble exp_list : Syntax.exp =
+  let _, preamble_exp_list = unfold_prog (get_preamble ()) in
+  SyntaxGenerator.mk_exp (Script (false, preamble_exp_list @ exp_list))
+
+let parse_commonjs parse transform program_path program_string =
+  let open Flow_parser in
   let rec resolve_modules required_paths added_paths combined_prog =
     match required_paths with
     | []           -> combined_prog
     | path :: rest ->
         if not (Str_set.mem path added_paths) then
-          let prog_string = load_file path in
-          let flow_prog, _ = Flow_parser.Parser_flow.program prog_string in
-          let loc, statements, cmnts = flow_prog in
-          let resolved_stats, req_paths = resolve_statements path statements in
+          let prog, errors = parse (load_file path) (file_of_path path) in
+          let () = check_parsing_errors errors in
+          let resolved_prog, req_paths = resolve_imports path prog in
+          let trans_prog = transform resolved_prog in
+          let use_strict, exp_list = unfold_prog trans_prog in
+          let augmented_prog = augment exp_list use_strict path false in
+          let combined_prog = augmented_prog @ combined_prog in
           let new_required = required_paths @ req_paths in
           let new_added = Str_set.add path added_paths in
-          let augmented_stats = augment resolved_stats path false in
-          let combined_prog =
-            combine (loc, augmented_stats, cmnts) combined_prog
-          in
           resolve_modules new_required new_added combined_prog
         else resolve_modules rest added_paths combined_prog
   in
-  (* Preprocess the main module *)
-  let loc, statements, cmnts = prog in
+  (* Parse and process the main module *)
+  let prog, errors = parse program_string (file_of_path program_path) in
+  let () = check_parsing_errors errors in
   let prog_path = normalize_path program_path in
-  let resolved_stats, req_paths = resolve_statements prog_path statements in
-  let augmented_stats = augment resolved_stats prog_path true in
-  let main_prog = (loc, augmented_stats, cmnts) in
-  (* Preprocess any required modules and combine them into one program *)
-  let final_prog = resolve_modules req_paths Str_set.empty main_prog in
-  combine module_preamble final_prog
+  let resolved_prog, req_paths = resolve_imports prog_path prog in
+  let trans_prog = transform resolved_prog in
+  let use_strict, exp_list = unfold_prog trans_prog in
+  let main_prog = augment exp_list use_strict program_path true in
+  (* Parse and process any required modules and combine them into one program *)
+  add_preamble (resolve_modules req_paths Str_set.empty main_prog)

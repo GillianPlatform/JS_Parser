@@ -1,6 +1,33 @@
 open Batteries.Incubator
 module Path = PathGen.OfString
 
+let search_string_forward regex str : int option =
+  try Some (Str.search_forward regex str 0) with Not_found -> None
+
+let check_parsing_errors errors =
+  match errors with
+  | []     -> ()
+  | errors ->
+      let pretty_messages =
+        List.map
+          (fun (loc, err) ->
+            let loc_str = Flow_parser.Loc.to_string loc in
+            let err_str = Flow_parser.Parse_error.PP.error err in
+            Printf.sprintf "%s: %s" loc_str err_str)
+          errors
+      in
+      let messages = String.concat "\n" pretty_messages in
+      let error_type =
+        match
+          search_string_forward
+            (Str.regexp "Invalid left-hand side in assignment")
+            (List.hd pretty_messages)
+        with
+        | Some _ -> "ReferenceError"
+        | None   -> "SyntaxError"
+      in
+      raise (Error.ParserError (Error.FlowParser (messages, error_type)))
+
 let normalize_path path_str =
   let path = Path.of_string path_str in
   let normalized_path = Path.normalize_in_tree path in

@@ -1224,7 +1224,6 @@ and transform_case ~parent_strict annots case =
   (trans_test, mk_exp (Block trans_cons) (offset test_end) [])
 
 and trans_stmt_list ~parent_strict start_loc raw_stmts annots =
-  (* List.iter (fun (loc, _) -> print_endline (Loc.to_string loc)) annots; *)
   let stmts_with_start_loc = with_start_loc start_loc raw_stmts in
   let trans_stmt (st_l, (lloc, s)) =
     let children_annotations =
@@ -1234,15 +1233,14 @@ and trans_stmt_list ~parent_strict start_loc raw_stmts annots =
   in
   List.map trans_stmt stmts_with_start_loc
 
-let transform_program ~parse_annotations ~parent_strict (prog : loc program) =
+let transform_program ~parse_annotations ~force_strict (prog : loc program) =
   let start_loc = Loc.none in
-  (* At @esy-ocaml/flow-parser v 0.76, this is position (0, 0) *)
+  (* As of @esy-ocaml/flow-parser v0.76, this is position (0, 0) *)
   let loc, raw_stmts, cmts = prog in
-  let strictness = parent_strict || block_is_strict raw_stmts in
+  let strictness = force_strict || block_is_strict raw_stmts in
   let annots = if parse_annotations then get_annotations cmts else [] in
   let stmts =
     trans_stmt_list ~parent_strict:strictness start_loc raw_stmts annots
   in
+  (* A script never has annotations *)
   mk_exp (Script (strictness, stmts)) (offset loc) []
-
-(* The script never has annotations *)
