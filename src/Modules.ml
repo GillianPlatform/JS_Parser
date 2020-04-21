@@ -61,7 +61,7 @@ let resolve_require_args
       else Error (Printf.sprintf "could not resolve module \"%s\"" path)
     else
       (* Global module, e.g. located in node_modules *)
-      Error "cannot import global modules"
+      Error (Printf.sprintf "cannot import global module \"%s\"" path)
   in
   let resolve_path_expr = function
     | Literal { value = String path; raw } ->
@@ -408,7 +408,10 @@ let parse_commonjs parse transform program_path program_string =
   let prog_path = normalize_path program_path in
   let resolved_prog, req_paths = resolve_imports prog_path prog in
   let trans_prog = transform resolved_prog in
-  let use_strict, exp_list = unfold_prog trans_prog in
-  let main_prog = augment exp_list use_strict program_path true in
-  (* Parse and process any required modules and combine them into one program *)
-  add_preamble (resolve_modules req_paths Str_set.empty main_prog)
+  if List.length req_paths = 0 then (* No required modules *)
+    trans_prog
+  else
+    let use_strict, exp_list = unfold_prog trans_prog in
+    let main_prog = augment exp_list use_strict program_path true in
+    (* Parse and process the required modules and combine them into one program *)
+    add_preamble (resolve_modules req_paths Str_set.empty main_prog)

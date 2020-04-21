@@ -11,7 +11,7 @@ var _cache = {};
 function require(id) {
   var module = _cache[id];
   if (module.status === "NOT_LOADED") {
-      module.load(module.exports, module, module.filename, module.dirname);
+    module.load(module.exports, module, module.filename, module.dirname);
   }
   return module.exports;
 }
