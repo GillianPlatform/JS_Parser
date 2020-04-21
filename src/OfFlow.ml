@@ -34,7 +34,7 @@ let deal_with_whitespace (s : string) =
 
 let remove_first = function
   | _ :: b :: r -> b :: r
-  | _ ->
+  | _           ->
       raise
         (CannotHappen
            "Removing the first of a list that has less than 2 elements")
@@ -61,18 +61,20 @@ let make_annotation (atype, adesc) =
     | "biabduce"      -> Some BiAbduce
     | "call"          -> Some Call
     | "JSIL"          -> Some JSIL_only
-    | _           -> None
+    | _               -> None
   in
-  match atype with 
-  | None -> None 
-  | Some atype -> Some {annot_type= atype; annot_formula= adesc}
+  match atype with
+  | None       -> None
+  | Some atype -> Some { annot_type = atype; annot_formula = adesc }
 
 let get_annotations (comments : loc Comment.t list) :
     (loc * Syntax.annotation list) list =
   (* Extracts strig from comment *)
   let mapkeep f l = List.map (fun (a, b) -> (a, f b)) l in
   let filterkeep f l = List.filter (fun (_, b) -> f b) l in
-  let only_string = function Comment.Block s | Comment.Line s -> s in
+  let only_string = function
+    | Comment.Block s | Comment.Line s -> s
+  in
   let simp_comments = mapkeep only_string comments in
   (* Cleans comment strings *)
   let clean cs = deal_with_whitespace (String.trim cs) in
@@ -92,50 +94,50 @@ let get_annotations (comments : loc Comment.t list) :
   let spaces =
     List.map
       (fun (_, z) ->
-        (List.map (fun x -> try Some (String.index x ' ') with _ -> None)) z )
+        (List.map (fun x -> try Some (String.index x ' ') with _ -> None)) z)
       only_annots
   in
   let annot_pairs =
     List.map2
       (fun (loc, cms) il ->
-        ( loc
-        , List.map2
+        ( loc,
+          List.map2
             (fun c i ->
               match i with
-              | None -> None
+              | None   -> None
               | Some i ->
                   Some
-                    ( String.trim (String.sub c 0 i)
-                    , String.trim (String.sub c i (String.length c - i)) ) )
-            cms il ) )
+                    ( String.trim (String.sub c 0 i),
+                      String.trim (String.sub c i (String.length c - i)) ))
+            cms il ))
       only_annots spaces
   in
   let rec filter_and_get = function
     | a :: r -> (
-      match a with None -> filter_and_get r | Some x -> x :: filter_and_get r )
-    | [] -> []
+        match a with
+        | None   -> filter_and_get r
+        | Some x -> x :: filter_and_get r )
+    | []     -> []
   in
   let annot_pairs_clean = mapkeep filter_and_get annot_pairs in
-  let annot_pairs = mapkeep (List.map make_annotation) annot_pairs_clean in 
-    mapkeep filter_and_get annot_pairs
-  
+  let annot_pairs = mapkeep (List.map make_annotation) annot_pairs_clean in
+  mapkeep filter_and_get annot_pairs
 
 (******* Just a small part to deal with directives *********)
 
 let get_directives st_lst =
   let rec loop curr rest =
     match rest with
-    | [] -> curr
-    | (_, a)::rp ->(
-      match a with
-      | Statement.Expression { directive = Some d; _ } -> loop (d::curr) rp
-      | _ -> curr (* There is not more directives *))
+    | []           -> curr
+    | (_, a) :: rp -> (
+        match a with
+        | Statement.Expression { directive = Some d; _ } -> loop (d :: curr) rp
+        | _ -> curr (* There is not more directives *) )
   in
   List.rev (loop [] st_lst)
 
 (** Returns true if the block is preceeded by a "use strict" directive *)
-let block_is_strict st_lst =
-  List.mem "use strict" (get_directives st_lst)
+let block_is_strict st_lst = List.mem "use strict" (get_directives st_lst)
 
 (******* Now we deal with AST transformation *********)
 
@@ -153,31 +155,35 @@ let compare_loc loca locb =
   let open Loc in
   if lower_pos loca._end locb.start then Before
   else if lower_pos locb._end loca.start then After
-  else if
-    lower_eq_pos loca.start locb.start && lower_eq_pos locb._end loca._end
+  else if lower_eq_pos loca.start locb.start && lower_eq_pos locb._end loca._end
   then Parent
-  else if
-    lower_eq_pos locb.start loca.start && lower_eq_pos loca._end locb._end
+  else if lower_eq_pos locb.start loca.start && lower_eq_pos loca._end locb._end
   then Child
   else raise (ParserError Overlapping_Syntax)
 
 (* Loc utils *)
 let before loca locb =
-  match compare_loc loca locb with Before -> true | _ -> false
+  match compare_loc loca locb with
+  | Before -> true
+  | _      -> false
 
 let child loca locb =
-  match compare_loc loca locb with Child -> true | _ -> false
+  match compare_loc loca locb with
+  | Child -> true
+  | _     -> false
 
 let after loca locb =
-  match compare_loc loca locb with After -> true | _ -> false
+  match compare_loc loca locb with
+  | After -> true
+  | _     -> false
 
 let get_first = function
-  | [] -> raise (CannotHappen "Getting the first element of an empty list")
+  | []     -> raise (CannotHappen "Getting the first element of an empty list")
   | a :: _ -> a
 
 let rec get_last = function
-  | [] -> raise (CannotHappen "Getting the last element of an empty list")
-  | [a] -> a
+  | []     -> raise (CannotHappen "Getting the last element of an empty list")
+  | [ a ]  -> a
   | _ :: r -> get_last r
 
 let rem_locs (annots : (loc * annotation list) list) : annotation list =
@@ -188,10 +194,11 @@ let offset loc = loc.Loc.start.offset
 let leading (annots : (loc * annotation list) list) (loc : loc) =
   List.filter (fun (l, _) -> before l loc) annots
 
-let leading_list (annots : (loc * annotation list) list)
-    (l_with_loc : (loc * 'a) list) : (loc * annotation list) list =
+let leading_list
+    (annots : (loc * annotation list) list) (l_with_loc : (loc * 'a) list) :
+    (loc * annotation list) list =
   match l_with_loc with
-  | [] -> annots
+  | []  -> annots
   | lll ->
       let fl, _ = get_first lll in
       leading annots fl
@@ -202,18 +209,18 @@ let partition_inner (loc : loc) (annots : (loc * annotation list) list) =
 let char_plus loc num =
   let open Loc in
   let _end =
-    let {line; column; offset} = loc._end in
+    let { line; column; offset } = loc._end in
     let column, offset = (column + num, offset + num) in
-    {line; column; offset}
+    { line; column; offset }
   in
   let start = _end in
-  {loc with start; _end}
+  { loc with start; _end }
 
 let char_after loc = char_plus loc 1
 
 let rec with_start_loc start_loc ll =
   match ll with
-  | [] -> []
+  | []            -> []
   | (loc, a) :: r ->
       let nl = char_after loc in
       (start_loc, (loc, a)) :: with_start_loc nl r
@@ -229,10 +236,13 @@ let check_unused_annots off annotation_l =
   ()
 
 (* Add annotations to a JSParser expression. *)
-let add_annot annots exp = {exp with exp_annot= exp.exp_annot @ annots}
+let add_annot annots exp = { exp with exp_annot = exp.exp_annot @ annots }
 
 (* Option utils *)
-let option_map f o = match o with None -> None | Some i -> Some (f i)
+let option_map f o =
+  match o with
+  | None   -> None
+  | Some i -> Some (f i)
 
 (* Flow AST utils *)
 let get_str_id ((_, b) : loc Identifier.t) = b
@@ -240,38 +250,31 @@ let get_str_id ((_, b) : loc Identifier.t) = b
 let get_str_pattern_restricted pat off =
   let open Pattern in
   match pat with
-  | Identifier.(Identifier {name= _, str; _}) -> str
+  | Identifier.(Identifier { name = _, str; _ }) -> str
   | Expression _ ->
       raise
         (ParserError
-           (NotEcmaScript5
-              ( "ES5: Unsupported pattern: Expression"
-              , off )))
+           (NotEcmaScript5 ("ES5: Unsupported pattern: Expression", off)))
   | Object _ ->
       raise
-        (ParserError
-           (NotEcmaScript5
-              ("ES5: Unsupported pattern: Object", off)))
+        (ParserError (NotEcmaScript5 ("ES5: Unsupported pattern: Object", off)))
   | Array _ ->
-    raise
-      (ParserError
-          (NotEcmaScript5
-            ("ES5: Unsupported pattern: Array", off)))
+      raise
+        (ParserError (NotEcmaScript5 ("ES5: Unsupported pattern: Array", off)))
   | Assignment _ ->
-    raise
-      (ParserError
-          (NotEcmaScript5
-            ("ES5: Unsupported pattern: Assignment", off)))
+      raise
+        (ParserError
+           (NotEcmaScript5 ("ES5: Unsupported pattern: Assignment", off)))
 
 let function_param_filter params =
   (* We are in ES5, so the only pattern available when declaring a function is an identifier.
       also there is no `rest` *)
-  let _, Function.Params.({params; rest}) = params in
+  let _, Function.Params.{ params; rest } = params in
   let () =
     match rest with
     | Some (lr, _) ->
         raise (ParserError (NotEcmaScript5 ("Using rest params", offset lr)))
-    | None -> ()
+    | None         -> ()
   in
   (* Now we are going to filter patterns that are not Identifier, if we find something else, we raise an error *)
   let rec f = function
@@ -288,18 +291,18 @@ let[@ocaml.deprecated] absolutely_do_not_ever_actually_use = mk_exp This 0 []
 let transform_unary_op off =
   let open Expression in
   function
-  | Unary.Minus -> Negative
-  | Unary.Plus -> Positive
-  | Unary.Not -> Not
+  | Unary.Minus  -> Negative
+  | Unary.Plus   -> Positive
+  | Unary.Not    -> Not
   | Unary.BitNot -> Bitnot
   | Unary.Typeof -> TypeOf
-  | Unary.Void -> Void
+  | Unary.Void   -> Void
   | Unary.Delete ->
       raise
         (CannotHappen
            "Delete is a special case of operator that should have been caught \
             earlier")
-  | Unary.Await ->
+  | Unary.Await  ->
       raise
         (ParserError
            (NotEcmaScript5 ("The await keyword is not part of ES5", off)))
@@ -307,62 +310,62 @@ let transform_unary_op off =
 let transform_binary_op off =
   let open Expression in
   function
-  | Binary.Equal -> Comparison Equal
-  | Binary.NotEqual -> Comparison NotEqual
-  | Binary.StrictEqual -> Comparison TripleEqual
-  | Binary.StrictNotEqual -> Comparison NotTripleEqual
-  | Binary.LessThan -> Comparison Lt
-  | Binary.LessThanEqual -> Comparison Le
-  | Binary.GreaterThan -> Comparison Gt
+  | Binary.Equal            -> Comparison Equal
+  | Binary.NotEqual         -> Comparison NotEqual
+  | Binary.StrictEqual      -> Comparison TripleEqual
+  | Binary.StrictNotEqual   -> Comparison NotTripleEqual
+  | Binary.LessThan         -> Comparison Lt
+  | Binary.LessThanEqual    -> Comparison Le
+  | Binary.GreaterThan      -> Comparison Gt
   | Binary.GreaterThanEqual -> Comparison Ge
-  | Binary.LShift -> Arith Lsh
-  | Binary.RShift -> Arith Rsh
-  | Binary.RShift3 -> Arith Ursh
-  | Binary.Plus -> Arith Plus
-  | Binary.Minus -> Arith Minus
-  | Binary.Mult -> Arith Times
-  | Binary.Exp ->
+  | Binary.LShift           -> Arith Lsh
+  | Binary.RShift           -> Arith Rsh
+  | Binary.RShift3          -> Arith Ursh
+  | Binary.Plus             -> Arith Plus
+  | Binary.Minus            -> Arith Minus
+  | Binary.Mult             -> Arith Times
+  | Binary.Exp              ->
       raise
         (ParserError
            (NotEcmaScript5
               ("Exponentiation operator (**) is not part of ES5", off)))
-  | Binary.Div -> Arith Div
-  | Binary.Mod -> Arith Mod
-  | Binary.BitOr -> Arith Bitor
-  | Binary.Xor -> Arith Bitxor
-  | Binary.BitAnd -> Arith Bitand
-  | Binary.In -> Comparison In
-  | Binary.Instanceof -> Comparison InstanceOf
+  | Binary.Div              -> Arith Div
+  | Binary.Mod              -> Arith Mod
+  | Binary.BitOr            -> Arith Bitor
+  | Binary.Xor              -> Arith Bitxor
+  | Binary.BitAnd           -> Arith Bitand
+  | Binary.In               -> Comparison In
+  | Binary.Instanceof       -> Comparison InstanceOf
 
 let transform_assignment_op off =
   let open Expression.Assignment in
   function
-  | Assign ->
+  | Assign        ->
       raise
         (CannotHappen
            "The Assign operator case should have been handled separetly")
-  | PlusAssign -> Plus
-  | MinusAssign -> Minus
-  | MultAssign -> Times
-  | ExpAssign ->
+  | PlusAssign    -> Plus
+  | MinusAssign   -> Minus
+  | MultAssign    -> Times
+  | ExpAssign     ->
       raise
         (ParserError
            (NotEcmaScript5
               ("The exponentiation operator is not part of ES5", off)))
-  | DivAssign -> Div
-  | ModAssign -> Mod
-  | LShiftAssign -> Lsh
-  | RShiftAssign -> Rsh
+  | DivAssign     -> Div
+  | ModAssign     -> Mod
+  | LShiftAssign  -> Lsh
+  | RShiftAssign  -> Rsh
   | RShift3Assign -> Ursh
-  | BitOrAssign -> Bitor
-  | BitXorAssign -> Bitxor
-  | BitAndAssign -> Bitand
+  | BitOrAssign   -> Bitor
+  | BitXorAssign  -> Bitxor
+  | BitAndAssign  -> Bitand
 
 let transform_logical_op off =
   let open Expression in
   function
-  | Logical.Or -> Boolean Or
-  | Logical.And -> Boolean And
+  | Logical.Or              -> Boolean Or
+  | Logical.And             -> Boolean And
   | Logical.NullishCoalesce ->
       raise
         (ParserError
@@ -372,8 +375,8 @@ let transform_logical_op off =
 let transform_update_op prefix op =
   let open Expression.Update in
   match (prefix, op) with
-  | true, Increment -> Pre_Incr
-  | true, Decrement -> Pre_Decr
+  | true, Increment  -> Pre_Incr
+  | true, Decrement  -> Pre_Decr
   | false, Increment -> Post_Incr
   | false, Decrement -> Post_Decr
 
@@ -383,24 +386,25 @@ let rec transform_properties ~parent_strict start_pos annotations properties =
   | [] ->
       let () = check_unused_annots (offset start_pos) annotations in
       []
-  | (loc, Init {key; value; shorthand=_}) :: r ->
+  | (loc, Init { key; value; shorthand = _ }) :: r ->
       let inner_annots, rest_annots =
-        partition_inner (Loc.btwn start_pos loc) annotations in
+        partition_inner (Loc.btwn start_pos loc) annotations
+      in
       let trans_key = transform_prop_key key in
       let trans_val = transform_expression ~parent_strict inner_annots value in
-      (* PETAR: ALLOWING SHORTHAND! 
-      let () =
-        if shorthand then
-          print_endline (Printf.sprintf "Shorthand:\n\tKey: %s\n\tValue: %s" 
-            (PrettyPrint.string_of_propname trans_key) 
-            (PrettyPrint.string_of_exp_syntax trans_val.exp_stx));
-          raise
-            (ParserError
-               (NotEcmaScript5
-                  ("Shorthand properties are not part of ES5", offset loc))) *)
+      (* PETAR: ALLOWING SHORTHAND!
+         let () =
+           if shorthand then
+             print_endline (Printf.sprintf "Shorthand:\n\tKey: %s\n\tValue: %s"
+               (PrettyPrint.string_of_propname trans_key)
+               (PrettyPrint.string_of_exp_syntax trans_val.exp_stx));
+             raise
+               (ParserError
+                  (NotEcmaScript5
+                     ("Shorthand properties are not part of ES5", offset loc))) *)
       (trans_key, PropbodyVal, trans_val)
       :: transform_properties ~parent_strict (char_after loc) rest_annots r
-  | (loc, Get {key; value}) :: r | (loc, Set {key; value}) :: r ->
+  | (loc, Get { key; value }) :: r | (loc, Set { key; value }) :: r ->
       let inner_annots, rest_annots =
         partition_inner (Loc.btwn start_pos loc) annotations
       in
@@ -408,14 +412,16 @@ let rec transform_properties ~parent_strict start_pos annotations properties =
       let lf, func = value in
       let fun_annots, leading_annots = partition_inner lf inner_annots in
       let trans_fun =
-        transform_function ~parent_strict ~expression:true start_pos (rem_locs leading_annots)
-          fun_annots func
+        transform_function ~parent_strict ~expression:true start_pos
+          (rem_locs leading_annots) fun_annots func
       in
       let typ =
         match properties with
         | (_, Get _) :: _ -> PropbodyGet
         | (_, Set _) :: _ -> PropbodySet
-        | _ -> raise (CannotHappen "Impossible: accessor other than getter or setter")
+        | _               ->
+            raise
+              (CannotHappen "Impossible: accessor other than getter or setter")
       in
       (trans_key, typ, trans_fun)
       :: transform_properties ~parent_strict (char_after loc) rest_annots r
@@ -428,22 +434,22 @@ let rec transform_properties ~parent_strict start_pos annotations properties =
 and transform_prop_key key =
   let open Expression.Object.Property in
   match key with
-  | Literal (_, Literal.({value= String s; _})) -> PropnameString s
-  | Literal (_, Literal.({value= Number f; _})) -> PropnameNum f
+  | Literal (_, Literal.{ value = String s; _ }) -> PropnameString s
+  | Literal (_, Literal.{ value = Number f; _ }) -> PropnameNum f
   | Identifier i -> PropnameId (get_str_id i)
   | Literal (l, _) | PrivateName (l, _) | Computed (l, _) ->
       raise
         (ParserError
            (NotEcmaScript5
               ( "Only strings or string and int literals are authorised as \
-                 property key in ES5"
-              , offset l )))
+                 property key in ES5",
+                offset l )))
 
-and transform_expression_sequence ~parent_strict start_pos leading_annots inner_annots
-    expr_list =
+and transform_expression_sequence
+    ~parent_strict start_pos leading_annots inner_annots expr_list =
   let rec aux stpos annots acc expl =
     match expl with
-    | [] ->
+    | []       ->
         let () = check_unused_annots (offset start_pos) annots in
         acc
     | exp :: r ->
@@ -452,9 +458,7 @@ and transform_expression_sequence ~parent_strict start_pos leading_annots inner_
           partition_inner (Loc.btwn stpos (char_after le)) annots
         in
         let trans_exp = transform_expression ~parent_strict e_annots exp in
-        let trans_acc =
-          mk_exp (Comma (acc, trans_exp)) (offset start_pos) []
-        in
+        let trans_acc = mk_exp (Comma (acc, trans_exp)) (offset start_pos) [] in
         aux (char_after le) rest_annots trans_acc r
   in
   match expr_list with
@@ -473,9 +477,13 @@ and transform_expression_sequence ~parent_strict start_pos leading_annots inner_
       let trans_snd = transform_expression ~parent_strict snd_annots snd in
       let acc = mk_exp (Comma (trans_fst, trans_snd)) (offset start_pos) [] in
       add_annot leading_annots (aux (char_after lsnd) rest_annots acc rest)
-  | _ -> raise (CannotHappen "Expression sequence with less than 2 elements")
+  | _                  -> raise
+                            (CannotHappen
+                               "Expression sequence with less than 2 elements")
 
-and transform_expression ~parent_strict (annotations : (loc * annotation list) list)
+and transform_expression
+    ~parent_strict
+    (annotations : (loc * annotation list) list)
     (expression : loc Expression.t) : exp =
   let loc, expr = expression in
   (* We supposedly passed with the expression :
@@ -489,23 +497,27 @@ and transform_expression ~parent_strict (annotations : (loc * annotation list) l
   let off = offset loc in
   let first_pos = Loc.first_char loc in
   match expr with
-  | Expression.(Unary Unary.({operator; prefix= _; argument})) -> (
-      let trans_arg = transform_expression ~parent_strict inner_annots argument in
+  | Expression.(Unary Unary.{ operator; prefix = _; argument }) -> (
+      let trans_arg =
+        transform_expression ~parent_strict inner_annots argument
+      in
       match operator with
       | Expression.Unary.Delete -> mk_exp (Delete trans_arg) off leading_annots
-      | o ->
+      | o                       ->
           let trans_op = transform_unary_op off o in
           mk_exp (Unary_op (trans_op, trans_arg)) off leading_annots )
-  | Expression.(Binary Binary.({left; right; operator})) ->
+  | Expression.(Binary Binary.{ left; right; operator }) ->
       let leftloc, _ = left in
       let left_annots, right_annots =
         partition_inner (Loc.btwn first_pos (char_after leftloc)) inner_annots
       in
       let trans_left = transform_expression ~parent_strict left_annots left in
-      let trans_right = transform_expression ~parent_strict right_annots right in
+      let trans_right =
+        transform_expression ~parent_strict right_annots right
+      in
       let trans_op = transform_binary_op off operator in
       mk_exp (BinOp (trans_left, trans_op, trans_right)) off leading_annots
-  | Expression.(Assignment Assignment.({left; right; operator})) -> (
+  | Expression.(Assignment Assignment.{ left; right; operator }) -> (
       let leftloc, _ = left in
       let left_annots, right_annots =
         partition_inner (Loc.btwn first_pos (char_after leftloc)) inner_annots
@@ -513,46 +525,55 @@ and transform_expression ~parent_strict (annotations : (loc * annotation list) l
       let trans_left =
         let locpat, pat = left in
         match pat with
-        | Pattern.(Identifier Identifier.({name= _, i; _})) ->
+        | Pattern.(Identifier Identifier.{ name = _, i; _ }) ->
             mk_exp (Var i) (offset locpat) (rem_locs left_annots)
-        | Pattern.Expression ex -> transform_expression ~parent_strict left_annots ex
+        | Pattern.Expression ex ->
+            transform_expression ~parent_strict left_annots ex
         | _ ->
             raise
               (ParserError
                  (NotEcmaScript5
-                    ( "Pattern matching in assignment is not authorized in ES5"
-                    , offset locpat )))
+                    ( "Pattern matching in assignment is not authorized in ES5",
+                      offset locpat )))
       in
-      let trans_right = transform_expression ~parent_strict right_annots right in
+      let trans_right =
+        transform_expression ~parent_strict right_annots right
+      in
       match operator with
       | Assign -> mk_exp (Assign (trans_left, trans_right)) off leading_annots
-      | o ->
+      | o      ->
           let trans_op = transform_assignment_op off o in
           mk_exp
             (AssignOp (trans_left, trans_op, trans_right))
             off leading_annots )
-  | Expression.(Logical Logical.({left; right; operator})) ->
+  | Expression.(Logical Logical.{ left; right; operator }) ->
       let leftloc, _ = left in
       let left_annots, right_annots =
         partition_inner (Loc.btwn first_pos leftloc) inner_annots
       in
       let trans_left = transform_expression ~parent_strict left_annots left in
-      let trans_right = transform_expression ~parent_strict right_annots right in
+      let trans_right =
+        transform_expression ~parent_strict right_annots right
+      in
       let trans_op = transform_logical_op off operator in
       mk_exp (BinOp (trans_left, trans_op, trans_right)) off leading_annots
-  | Expression.(Update Update.({operator; argument; prefix})) ->
-      let trans_arg = transform_expression ~parent_strict inner_annots argument in
+  | Expression.(Update Update.{ operator; argument; prefix }) ->
+      let trans_arg =
+        transform_expression ~parent_strict inner_annots argument
+      in
       let trans_op = transform_update_op prefix operator in
       mk_exp (Unary_op (trans_op, trans_arg)) off leading_annots
-  | Expression.(Member Member.({_object; property; computed})) -> (
+  | Expression.(Member Member.{ _object; property; computed }) -> (
       let lobject, _ = _object in
       let object_annots, mem_annots =
         partition_inner (Loc.btwn first_pos lobject) inner_annots
       in
-      let trans_obj = transform_expression ~parent_strict object_annots _object in
+      let trans_obj =
+        transform_expression ~parent_strict object_annots _object
+      in
       let open Expression.Member in
       match property with
-      | PropertyIdentifier i ->
+      | PropertyIdentifier i       ->
           let () =
             if computed then
               raise
@@ -561,12 +582,11 @@ and transform_expression ~parent_strict (annotations : (loc * annotation list) l
           in
           let strname = get_str_id i in
           mk_exp (Access (trans_obj, strname)) off leading_annots
-      | PropertyExpression e ->
+      | PropertyExpression e       ->
           let () =
             if not computed then
               raise
-                (CannotHappen
-                   "Not computed property member given an expression")
+                (CannotHappen "Not computed property member given an expression")
           in
           let trans_prop = transform_expression ~parent_strict mem_annots e in
           mk_exp (CAccess (trans_obj, trans_prop)) off leading_annots
@@ -578,13 +598,13 @@ and transform_expression ~parent_strict (annotations : (loc * annotation list) l
   | Expression.This ->
       let () = check_unused_annots off inner_annots in
       mk_exp This off leading_annots
-  | Expression.(Object Object.({properties})) ->
+  | Expression.(Object Object.{ properties }) ->
       let open Expression.Object in
       (* First we filter object properties *)
       let props =
         List.map
           (function
-            | Property p -> p
+            | Property p            -> p
             | SpreadProperty (l, _) ->
                 raise
                   (ParserError
@@ -592,118 +612,126 @@ and transform_expression ~parent_strict (annotations : (loc * annotation list) l
                         ("Use of spread property illegal in ES5", offset l))))
           properties
       in
-      let trans_props = transform_properties ~parent_strict first_pos inner_annots props in
+      let trans_props =
+        transform_properties ~parent_strict first_pos inner_annots props
+      in
       mk_exp (Obj trans_props) off leading_annots
-  | Expression.(Sequence Sequence.({expressions})) ->
-      transform_expression_sequence ~parent_strict first_pos leading_annots inner_annots
-        expressions
-  | Expression.(New New.({callee; arguments; _})) ->
+  | Expression.(Sequence Sequence.{ expressions }) ->
+      transform_expression_sequence ~parent_strict first_pos leading_annots
+        inner_annots expressions
+  | Expression.(New New.{ callee; arguments; _ }) ->
       let calleeloc, _ = callee in
       let callee_annots, arg_annots =
         partition_inner (Loc.btwn first_pos calleeloc) inner_annots
       in
-      let trans_callee = transform_expression ~parent_strict callee_annots callee in
+      let trans_callee =
+        transform_expression ~parent_strict callee_annots callee
+      in
       let exprs_args =
         List.map
           Expression.(
             function
             | Expression e -> e
-            | Spread _ ->
+            | Spread _     ->
                 raise
                   (ParserError
-                     (NotEcmaScript5
-                        ("Use of spread illegal in ES5", offset loc))))
+                     (NotEcmaScript5 ("Use of spread illegal in ES5", offset loc))))
           arguments
       in
       let trans_args =
-        transform_expr_list ~parent_strict (char_after calleeloc) arg_annots exprs_args
+        transform_expr_list ~parent_strict (char_after calleeloc) arg_annots
+          exprs_args
       in
       mk_exp (New (trans_callee, trans_args)) off leading_annots
-  | Expression.(Conditional Conditional.({test; consequent; alternate})) ->
+  | Expression.(Conditional Conditional.{ test; consequent; alternate }) ->
       let trans_cond =
-        transform_expr_list ~parent_strict first_pos inner_annots [test; consequent; alternate]
+        transform_expr_list ~parent_strict first_pos inner_annots
+          [ test; consequent; alternate ]
       in
       let trans_test, trans_cons, trans_alt =
         match trans_cond with
-        | [t; c; a] -> (t, c, a)
-        | _ -> raise (CannotHappen "Inconsistent size of array after mapping")
+        | [ t; c; a ] -> (t, c, a)
+        | _           -> raise
+                           (CannotHappen
+                              "Inconsistent size of array after mapping")
       in
       mk_exp
         (ConditionalOp (trans_test, trans_cons, trans_alt))
         off leading_annots
-  | Expression.(Array Array.({elements})) ->
+  | Expression.(Array Array.{ elements }) ->
       let expr_opt_els =
         List.map
           Expression.(
             function
             | Some (Expression e) -> Some e
-            | Some (Spread _) ->
+            | Some (Spread _)     ->
                 raise
                   (ParserError
-                     (NotEcmaScript5
-                        ("Use of spread illegal in ES5", offset loc)))
-            | None -> None)
+                     (NotEcmaScript5 ("Use of spread illegal in ES5", offset loc)))
+            | None                -> None)
           elements
       in
       let rec trans_els_opt start_pos annots expr_opt_l =
         match expr_opt_l with
-        | [] ->
+        | []           ->
             let () = check_unused_annots (offset start_pos) annots in
             []
         | exp_opt :: r -> (
-          match exp_opt with
-          | Some exp ->
-              let le, _ = exp in
-              let this_annots, rest_annots =
-                partition_inner (Loc.btwn start_pos le) annots
-              in
-              Some (transform_expression ~parent_strict this_annots exp)
-              :: trans_els_opt (char_after le) rest_annots r
-          | None -> None :: trans_els_opt start_pos annots r )
+            match exp_opt with
+            | Some exp ->
+                let le, _ = exp in
+                let this_annots, rest_annots =
+                  partition_inner (Loc.btwn start_pos le) annots
+                in
+                Some (transform_expression ~parent_strict this_annots exp)
+                :: trans_els_opt (char_after le) rest_annots r
+            | None     -> None :: trans_els_opt start_pos annots r )
       in
       let trans_els = trans_els_opt first_pos inner_annots expr_opt_els in
       mk_exp (Array trans_els) off leading_annots
   | Expression.(Identifier (_, i)) -> mk_exp (Var i) off (rem_locs annotations)
-  | Expression.(Literal Literal.({ value; _ })) ->
+  | Expression.(Literal Literal.{ value; _ }) ->
       let trans_val =
         match value with
         | Literal.Boolean b -> Bool b
         | Literal.Number f -> Num f
         | Literal.Null -> Null
         | Literal.String s -> String s
-        | Literal.(RegExp RegExp.({pattern; flags})) -> RegExp (pattern, flags)
+        | Literal.(RegExp RegExp.{ pattern; flags }) -> RegExp (pattern, flags)
       in
       mk_exp trans_val off leading_annots
-  | Expression.(Call Call.({callee; arguments; _})) ->
+  | Expression.(Call Call.{ callee; arguments; _ }) ->
       let calleeloc, _ = callee in
       let callee_annots, arg_annots =
         partition_inner (Loc.btwn first_pos calleeloc) inner_annots
       in
-      let trans_callee = transform_expression ~parent_strict callee_annots callee in
+      let trans_callee =
+        transform_expression ~parent_strict callee_annots callee
+      in
       let exprs_args =
         List.map
           Expression.(
             function
             | Expression e -> e
-            | Spread _ ->
+            | Spread _     ->
                 raise
                   (ParserError
-                     (NotEcmaScript5
-                        ("Use of spread illegal in ES5", offset loc))))
+                     (NotEcmaScript5 ("Use of spread illegal in ES5", offset loc))))
           arguments
       in
       let trans_args =
-        transform_expr_list ~parent_strict (char_after calleeloc) arg_annots exprs_args
+        transform_expr_list ~parent_strict (char_after calleeloc) arg_annots
+          exprs_args
       in
       mk_exp (Call (trans_callee, trans_args)) off leading_annots
   | Expression.Function fn ->
-      transform_function ~parent_strict ~expression:true first_pos leading_annots inner_annots
-        fn
+      transform_function ~parent_strict ~expression:true first_pos
+        leading_annots inner_annots fn
   | _ -> raise (ParserError (Unhandled_Expression off))
 
 and transform_expr_list ~parent_strict start_pos annots exprl =
   match exprl with
-  | [] ->
+  | []       ->
       let () = check_unused_annots (offset start_pos) annots in
       []
   | exp :: r ->
@@ -714,68 +742,110 @@ and transform_expr_list ~parent_strict start_pos annots exprl =
       transform_expression ~parent_strict this_annots exp
       :: transform_expr_list ~parent_strict (char_after le) rest_annots r
 
-and create_assignment lpat pattern exp = 
+and create_assignment lpat pattern exp =
   let open Pattern in
-  let open Flow_parser.Ast.Pattern.Object in 
-  let off = offset lpat in 
+  let open Flow_parser.Ast.Pattern.Object in
+  let off = offset lpat in
   match pattern with
-  | Identifier.(Identifier {name= _, str; _}) -> [ (str, exp) ]
-  | Expression _ -> raise (ParserError (NotEcmaScript5 ("ES5: Unsupported pattern: Expression", off)))
-  | Object { properties; _ } ->
-    (match exp with 
-    | None -> raise (ParserError (NotEcmaScript5 ("ES5: Object pattern assignment without rhs", off)))
-    | Some exp -> 
-        List.map (fun property -> 
-          match property with 
-          | Property (_, { key; _ }) -> 
-            let propname : string = 
-              match key with 
-              | Identifier (_, id) -> id
-              | _ -> raise (ParserError (NotEcmaScript5 ("ES5: Unsupported identifier in object pattern: literal/computed", off)))
-            in 
-            let propvalue = { exp with exp_stx = Access(exp, propname) } in
-              (propname, Some propvalue)
-          | RestProperty _ -> 
-              raise (ParserError (NotEcmaScript5 ("ES5: RestProperty not supported in object pattern assignment", off)))
-        ) properties)
-
-  | Array { elements; _ } ->
-    let open Flow_parser.Ast.Pattern.Array in 
-    (match exp with 
-    | None -> raise (ParserError (NotEcmaScript5 ("ES5: Array pattern assignment without rhs", off)))
-    | Some exp -> 
-        List.concat (List.mapi (fun i oelement -> 
-          match oelement with 
-          | None -> []
-          | Some element -> 
-            match element with 
-            | Element (_, Identifier {name= _, str; _}) -> 
-              let propname : string = str in 
-              let index = { exp_offset = exp.exp_offset; exp_stx = Num (float_of_int i); exp_annot = [] } in 
-              let propvalue = { exp with exp_stx = CAccess(exp, index) } in
-                [ (propname, Some propvalue) ]
-            | Element _ -> 
-                raise (ParserError (NotEcmaScript5 ("ES5: Only identifiers supported in array pattern assignment", off)))
-            | RestElement _ -> 
-                raise (ParserError (NotEcmaScript5 ("ES5: RestElement not supported in object pattern assignment", off)))
-        ) elements))
-
+  | Identifier.(Identifier { name = _, str; _ }) -> [ (str, exp) ]
+  | Expression _ ->
+      raise
+        (ParserError
+           (NotEcmaScript5 ("ES5: Unsupported pattern: Expression", off)))
+  | Object { properties; _ } -> (
+      match exp with
+      | None     ->
+          raise
+            (ParserError
+               (NotEcmaScript5
+                  ("ES5: Object pattern assignment without rhs", off)))
+      | Some exp ->
+          List.map
+            (fun property ->
+              match property with
+              | Property (_, { key; _ }) ->
+                  let propname : string =
+                    match key with
+                    | Identifier (_, id) -> id
+                    | _                  ->
+                        raise
+                          (ParserError
+                             (NotEcmaScript5
+                                ( "ES5: Unsupported identifier in object \
+                                   pattern: literal/computed",
+                                  off )))
+                  in
+                  let propvalue =
+                    { exp with exp_stx = Access (exp, propname) }
+                  in
+                  (propname, Some propvalue)
+              | RestProperty _           ->
+                  raise
+                    (ParserError
+                       (NotEcmaScript5
+                          ( "ES5: RestProperty not supported in object pattern \
+                             assignment",
+                            off ))))
+            properties )
+  | Array { elements; _ } -> (
+      let open Flow_parser.Ast.Pattern.Array in
+      match exp with
+      | None     ->
+          raise
+            (ParserError
+               (NotEcmaScript5 ("ES5: Array pattern assignment without rhs", off)))
+      | Some exp ->
+          List.concat
+            (List.mapi
+               (fun i oelement ->
+                 match oelement with
+                 | None         -> []
+                 | Some element -> (
+                     match element with
+                     | Element (_, Identifier { name = _, str; _ }) ->
+                         let propname : string = str in
+                         let index =
+                           {
+                             exp_offset = exp.exp_offset;
+                             exp_stx = Num (float_of_int i);
+                             exp_annot = [];
+                           }
+                         in
+                         let propvalue =
+                           { exp with exp_stx = CAccess (exp, index) }
+                         in
+                         [ (propname, Some propvalue) ]
+                     | Element _ ->
+                         raise
+                           (ParserError
+                              (NotEcmaScript5
+                                 ( "ES5: Only identifiers supported in array \
+                                    pattern assignment",
+                                   off )))
+                     | RestElement _ ->
+                         raise
+                           (ParserError
+                              (NotEcmaScript5
+                                 ( "ES5: RestElement not supported in object \
+                                    pattern assignment",
+                                   off ))) ))
+               elements) )
   | Assignment _ ->
-    raise
-      (ParserError
-          (NotEcmaScript5
-            ("ES5: Unsupported pattern: Assignment", off)))
+      raise
+        (ParserError
+           (NotEcmaScript5 ("ES5: Unsupported pattern: Assignment", off)))
 
-and transform_variable_decl ~parent_strict declaration total_loc leading_annots inner_annots =
+and transform_variable_decl
+    ~parent_strict declaration total_loc leading_annots inner_annots =
   (* We are in ES5, the only patterns available when declaring variable is an identifier.
      Also, the kind has to be var, since let and cons were introduced in ES2015. *)
   let open Statement.VariableDeclaration in
   let start = Loc.first_char total_loc in
-  let {kind; declarations} = declaration in
+  let { kind; declarations } = declaration in
   let () =
     match kind with
     | Var -> ()
-    | _ ->
+    | _   ->
         raise
           (ParserError
              (NotEcmaScript5
@@ -785,47 +855,56 @@ and transform_variable_decl ~parent_strict declaration total_loc leading_annots 
     | [] ->
         let () = check_unused_annots (offset total_loc) remaining_annots in
         []
-    | (_, Declarator.({id= lpat, pattern; init})) :: r ->
+    | (_, Declarator.{ id = lpat, pattern; init }) :: r ->
         (* TODO: This is where the are object and array assignment patterns are enabled *)
         let exp, rest_annot, last_char =
           match init with
-          | None -> (None, remaining_annots, char_after lpat)
+          | None         -> (None, remaining_annots, char_after lpat)
           | Some (le, e) ->
               let this_annot, rest_annot =
                 partition_inner (Loc.btwn stloc le) remaining_annots
               in
-              ( Some (transform_expression ~parent_strict this_annot (le, e))
-              , rest_annot
-              , char_after le )
+              ( Some (transform_expression ~parent_strict this_annot (le, e)),
+                rest_annot,
+                char_after le )
         in
-        (create_assignment lpat pattern exp) 
-        @ f last_char rest_annot r
+        create_assignment lpat pattern exp @ f last_char rest_annot r
   in
   match declarations with
-  | [] ->
-      raise
-        (CannotHappen "Empty list of declarators in variable declaration !")
+  | []       ->
+      raise (CannotHappen "Empty list of declarators in variable declaration !")
   | children ->
       mk_exp
         (VarDec (f start inner_annots children))
         (offset total_loc) leading_annots
 
-and transform_function ~parent_strict ~(expression : bool)
+and transform_function
+    ~parent_strict
+    ~(expression : bool)
     (* If true, gives a FunctionExp, other a Function (statement) *)
-    (start_pos : Loc.t) (leading_annots : annotation list)
-    (inner_annots : (loc * annotation list) list) (fn : loc Function.t) : exp =
-  let Function.({id; params; body; _}) = fn in
-  let id = match id with None -> None | Some (_, i) -> Some i in
+      (start_pos : Loc.t)
+    (leading_annots : annotation list)
+    (inner_annots : (loc * annotation list) list)
+    (fn : loc Function.t) : exp =
+  let Function.{ id; params; body; _ } = fn in
+  let id =
+    match id with
+    | None        -> None
+    | Some (_, i) -> Some i
+  in
   let param_strs = function_param_filter params in
-  let (body_transf, strictness) =
+  let body_transf, strictness =
     match body with
     | Function.BodyBlock (_, fbody) ->
-        let Statement.Block.({body}) = fbody in
-        let strictness = parent_strict || (block_is_strict body) in
-        let children = trans_stmt_list ~parent_strict:strictness start_pos body inner_annots in
+        let Statement.Block.{ body } = fbody in
+        let strictness = parent_strict || block_is_strict body in
+        let children =
+          trans_stmt_list ~parent_strict:strictness start_pos body inner_annots
+        in
         (mk_exp (Block children) (offset start_pos) [], strictness)
         (* Annotations are attached to the children *)
-    | Function.BodyExpression expr -> (transform_expression ~parent_strict inner_annots expr, false)
+    | Function.BodyExpression expr ->
+        (transform_expression ~parent_strict inner_annots expr, false)
   in
   if expression then
     mk_exp
@@ -836,7 +915,9 @@ and transform_function ~parent_strict ~(expression : bool)
       (Function (strictness, id, param_strs, body_transf))
       (offset start_pos) leading_annots
 
-and transform_statement ~parent_strict (annotations : (loc * annotation list) list)
+and transform_statement
+    ~parent_strict
+    (annotations : (loc * annotation list) list)
     (statement : loc Statement.t) : exp =
   let loc, stmt = statement in
   (* We supposedly passed with the statements :
@@ -850,20 +931,22 @@ and transform_statement ~parent_strict (annotations : (loc * annotation list) li
   let off = offset loc in
   let first_pos = Loc.first_char loc in
   match stmt with
-  | Statement.Block {body} ->
-      let children = trans_stmt_list ~parent_strict first_pos body inner_annots in
+  | Statement.Block { body } ->
+      let children =
+        trans_stmt_list ~parent_strict first_pos body inner_annots
+      in
       mk_exp (Block children) off leading_annots
   | Statement.FunctionDeclaration fn ->
-      transform_function ~parent_strict ~expression:false first_pos leading_annots
-        inner_annots fn
+      transform_function ~parent_strict ~expression:false first_pos
+        leading_annots inner_annots fn
   | Statement.VariableDeclaration vd ->
       transform_variable_decl ~parent_strict vd loc leading_annots inner_annots
   | Statement.Expression e ->
-      let Statement.Expression.({expression; _}) = e in
+      let Statement.Expression.{ expression; _ } = e in
       transform_expression ~parent_strict annotations expression
       (* all the annotations are given to the child directly *)
-  | Statement.(If {test= ltest, testexp; consequent= lcons, consstmt; alternate})
-    ->
+  | Statement.(
+      If { test = ltest, testexp; consequent = lcons, consstmt; alternate }) ->
       let test_annots, other_annots =
         partition_inner (Loc.btwn loc ltest) inner_annots
       in
@@ -872,23 +955,28 @@ and transform_statement ~parent_strict (annotations : (loc * annotation list) li
         partition_inner (Loc.btwn (char_after ltest) lcons) other_annots
       in
       (* annots between the test and the end of the consequent *)
-      let trans_test = transform_expression ~parent_strict test_annots (ltest, testexp) in
-      let trans_cons = transform_statement ~parent_strict cons_annots (lcons, consstmt) in
+      let trans_test =
+        transform_expression ~parent_strict test_annots (ltest, testexp)
+      in
+      let trans_cons =
+        transform_statement ~parent_strict cons_annots (lcons, consstmt)
+      in
       let trans_alt, rest_annots =
         match alternate with
-        | None -> (None, other_annots)
+        | None                 -> (None, other_annots)
         | Some (lalt, altstmt) ->
             let alt_annots, rest_annots =
               partition_inner (Loc.btwn (char_after lcons) lalt) other_annots
             in
             let trans_alt =
-              Some (transform_statement ~parent_strict alt_annots (lalt, altstmt))
+              Some
+                (transform_statement ~parent_strict alt_annots (lalt, altstmt))
             in
             (trans_alt, rest_annots)
       in
       let () = check_unused_annots off rest_annots in
       mk_exp (If (trans_test, trans_cons, trans_alt)) off leading_annots
-  | Statement.(Labeled Labeled.({label; body})) ->
+  | Statement.(Labeled Labeled.{ label; body }) ->
       let locbody, _ = body in
       let loclab, lab = label in
       let child_annot, rest_annot =
@@ -897,17 +985,17 @@ and transform_statement ~parent_strict (annotations : (loc * annotation list) li
       let () = check_unused_annots off rest_annot in
       let trans_child = transform_statement ~parent_strict child_annot body in
       mk_exp (Label (lab, trans_child)) off leading_annots
-  | Statement.(Break Break.({label})) ->
+  | Statement.(Break Break.{ label }) ->
       let () = check_unused_annots off inner_annots in
       (* We do not consider annotations between the 'break' and the label if there is one *)
       let lab = option_map get_str_id label in
       mk_exp (Break lab) off leading_annots
-  | Statement.(Continue Continue.({label})) ->
+  | Statement.(Continue Continue.{ label }) ->
       let () = check_unused_annots off inner_annots in
       (* We do not consider annotations between the 'break' and the label if there is one *)
       let lab = option_map get_str_id label in
       mk_exp (Continue lab) off leading_annots
-  | Statement.(With With.({_object; body})) ->
+  | Statement.(With With.{ _object; body }) ->
       let lobj, _ = _object in
       let obj_annot, body_annot =
         partition_inner (Loc.btwn loc lobj) inner_annots
@@ -916,36 +1004,44 @@ and transform_statement ~parent_strict (annotations : (loc * annotation list) li
       let trans_body = transform_statement ~parent_strict body_annot body in
       (* Every remaining annotation goes to the body *)
       mk_exp (With (trans_obj, trans_body)) off leading_annots
-  | Statement.(Switch {discriminant; cases}) ->
+  | Statement.(Switch { discriminant; cases }) ->
       let ldisc, _ = discriminant in
       let expr_annots, other_annots = partition_inner ldisc inner_annots in
-      let trans_discr = transform_expression ~parent_strict expr_annots discriminant in
-      let trans_cases = List.map (transform_case ~parent_strict other_annots) cases in
+      let trans_discr =
+        transform_expression ~parent_strict expr_annots discriminant
+      in
+      let trans_cases =
+        List.map (transform_case ~parent_strict other_annots) cases
+      in
       (* This might lose some annotations between the end of a case and the beginning of the next one *)
       mk_exp (Switch (trans_discr, trans_cases)) off leading_annots
-  | Statement.(Throw Throw.({argument})) ->
-      let trans_arg = transform_expression ~parent_strict inner_annots argument in
+  | Statement.(Throw Throw.{ argument }) ->
+      let trans_arg =
+        transform_expression ~parent_strict inner_annots argument
+      in
       mk_exp (Throw trans_arg) off leading_annots
-  | Statement.(Try Try.({block; handler; finalizer})) ->
-      let lblock, Statement.Block.({body}) = block in
+  | Statement.(Try Try.{ block; handler; finalizer }) ->
+      let lblock, Statement.Block.{ body } = block in
       let block_annots, other_annots = partition_inner lblock inner_annots in
       let block_start = Loc.first_char lblock in
-      let trans_inside_block = trans_stmt_list ~parent_strict block_start body block_annots in
+      let trans_inside_block =
+        trans_stmt_list ~parent_strict block_start body block_annots
+      in
       let trans_block = mk_exp (Block trans_inside_block) (offset lblock) [] in
       let trans_handler, other_annots =
         match handler with
         | None -> (None, other_annots)
         | Some
-            Statement.Try.CatchClause.(lhandler, {param; body= lbody, bblock})
-          ->
+            Statement.Try.CatchClause.(
+              lhandler, { param; body = lbody, bblock }) ->
             let str_param =
               match param with
               | None ->
                   raise
                     (ParserError
                        (NotEcmaScript5
-                          ( "In ES5, catch must have a parameter!"
-                          , offset lhandler )))
+                          ( "In ES5, catch must have a parameter!",
+                            offset lhandler )))
               (* TODO: Which patterns are expected here? *)
               | Some (lpat, pat) -> get_str_pattern_restricted pat (offset lpat)
             in
@@ -953,7 +1049,7 @@ and transform_statement ~parent_strict (annotations : (loc * annotation list) li
             let body_annots, other_annots =
               partition_inner lbody other_annots
             in
-            let Statement.Block.({body}) = bblock in
+            let Statement.Block.{ body } = bblock in
             let trans_inside_body =
               trans_stmt_list ~parent_strict body_start body body_annots
             in
@@ -965,7 +1061,7 @@ and transform_statement ~parent_strict (annotations : (loc * annotation list) li
       in
       let trans_final, other_annots =
         match finalizer with
-        | Some (lfin, Statement.Block.({body})) ->
+        | Some (lfin, Statement.Block.{ body }) ->
             let fin_annots, other_annots = partition_inner lfin other_annots in
             let block_start = Loc.first_char lfin in
             let trans_inside_final =
@@ -980,7 +1076,7 @@ and transform_statement ~parent_strict (annotations : (loc * annotation list) li
       in
       let () = check_unused_annots off other_annots in
       mk_exp (Try (trans_block, trans_handler, trans_final)) off leading_annots
-  | Statement.(While While.({test; body})) ->
+  | Statement.(While While.{ test; body }) ->
       let ltest, _ = test in
       let expr_annots, body_annots =
         partition_inner (Loc.btwn first_pos ltest) inner_annots
@@ -988,7 +1084,7 @@ and transform_statement ~parent_strict (annotations : (loc * annotation list) li
       let trans_exp = transform_expression ~parent_strict expr_annots test in
       let trans_body = transform_statement ~parent_strict body_annots body in
       mk_exp (While (trans_exp, trans_body)) off leading_annots
-  | Statement.(DoWhile DoWhile.({test; body})) ->
+  | Statement.(DoWhile DoWhile.{ test; body }) ->
       let ltest, _ = test in
       let expr_annots, body_annots =
         partition_inner (Loc.btwn first_pos ltest) inner_annots
@@ -996,7 +1092,7 @@ and transform_statement ~parent_strict (annotations : (loc * annotation list) li
       let trans_test = transform_expression ~parent_strict expr_annots test in
       let trans_body = transform_statement ~parent_strict body_annots body in
       mk_exp (DoWhile (trans_body, trans_test)) off leading_annots
-  | Statement.(ForIn ForIn.({left; right; body; each= _})) ->
+  | Statement.(ForIn ForIn.{ left; right; body; each = _ }) ->
       let open Statement.ForIn in
       let trans_left, other_annots, endleft =
         match left with
@@ -1014,7 +1110,10 @@ and transform_statement ~parent_strict (annotations : (loc * annotation list) li
             let left_annots, other_annots =
               partition_inner (Loc.btwn first_pos locleft) inner_annots
             in
-            let t = transform_variable_decl ~parent_strict vdecl locleft [] left_annots in
+            let t =
+              transform_variable_decl ~parent_strict vdecl locleft []
+                left_annots
+            in
             (t, other_annots, char_after locleft)
       in
       let trans_right, other_annots, endright =
@@ -1035,7 +1134,7 @@ and transform_statement ~parent_strict (annotations : (loc * annotation list) li
       in
       let () = check_unused_annots off rest_annots in
       mk_exp (ForIn (trans_left, trans_right, trans_body)) off leading_annots
-  | Statement.(For For.({init; test; update; body})) ->
+  | Statement.(For For.{ init; test; update; body }) ->
       let open Statement.For in
       let trans_init, other_annots, endinit =
         match init with
@@ -1044,7 +1143,9 @@ and transform_statement ~parent_strict (annotations : (loc * annotation list) li
             let init_annots, other_annots =
               partition_inner (Loc.btwn first_pos ldec) inner_annots
             in
-            let t = transform_variable_decl ~parent_strict vd ldec [] init_annots in
+            let t =
+              transform_variable_decl ~parent_strict vd ldec [] init_annots
+            in
             (Some t, other_annots, char_after ldec)
         | Some (InitExpression (le, e)) ->
             let init_annots, other_annots =
@@ -1055,7 +1156,7 @@ and transform_statement ~parent_strict (annotations : (loc * annotation list) li
       in
       let trans_test, other_annots, endtest =
         match test with
-        | None -> (None, other_annots, endinit)
+        | None         -> (None, other_annots, endinit)
         | Some (le, e) ->
             let test_annots, other_annots =
               partition_inner (Loc.btwn endinit le) other_annots
@@ -1065,7 +1166,7 @@ and transform_statement ~parent_strict (annotations : (loc * annotation list) li
       in
       let trans_update, other_annots, endupdate =
         match update with
-        | None -> (None, other_annots, endtest)
+        | None         -> (None, other_annots, endtest)
         | Some (le, e) ->
             let update_annots, other_annots =
               partition_inner (Loc.btwn endinit le) other_annots
@@ -1085,7 +1186,7 @@ and transform_statement ~parent_strict (annotations : (loc * annotation list) li
       mk_exp
         (For (trans_init, trans_test, trans_update, trans_body))
         off leading_annots
-  | Statement.(Return Return.({argument})) ->
+  | Statement.(Return Return.{ argument }) ->
       let trans_arg =
         option_map (transform_expression ~parent_strict inner_annots) argument
       in
@@ -1101,21 +1202,25 @@ and transform_statement ~parent_strict (annotations : (loc * annotation list) li
 and transform_case ~parent_strict annots case =
   (* I don't know how correct the following is. *)
   let open Statement.Switch.Case in
-  let lcase, {test; consequent} = case in
+  let lcase, { test; consequent } = case in
   let inner_annots = List.filter (fun (l, _) -> child l lcase) annots in
   let test_end, trans_test =
     match test with
-    | None ->
-        (* `default` is of length  7*)
+    | None         ->
+        (* `default` is of length 7 *)
         let test_end = char_plus lcase 7 in
         let trans_test = DefaultCase in
         (test_end, trans_test)
     | Some (le, e) ->
         let test_end = char_after le in
-        let trans_test = Case (transform_expression ~parent_strict [] (le, e)) in
+        let trans_test =
+          Case (transform_expression ~parent_strict [] (le, e))
+        in
         (test_end, trans_test)
   in
-  let trans_cons = trans_stmt_list ~parent_strict test_end consequent inner_annots in
+  let trans_cons =
+    trans_stmt_list ~parent_strict test_end consequent inner_annots
+  in
   (trans_test, mk_exp (Block trans_cons) (offset test_end) [])
 
 and trans_stmt_list ~parent_strict start_loc raw_stmts annots =
@@ -1128,13 +1233,14 @@ and trans_stmt_list ~parent_strict start_loc raw_stmts annots =
   in
   List.map trans_stmt stmts_with_start_loc
 
-let transform_program ~parse_annotations ~parent_strict (prog : loc program) =
+let transform_program ~parse_annotations ~force_strict (prog : loc program) =
   let start_loc = Loc.none in
-  (* At @esy-ocaml/flow-parser v 0.76, this is position (0, 0) *)
+  (* As of @esy-ocaml/flow-parser v0.76, this is position (0, 0) *)
   let loc, raw_stmts, cmts = prog in
-  let strictness = parent_strict || (block_is_strict raw_stmts) in
+  let strictness = force_strict || block_is_strict raw_stmts in
   let annots = if parse_annotations then get_annotations cmts else [] in
-  let stmts = trans_stmt_list ~parent_strict:strictness start_loc raw_stmts annots in
+  let stmts =
+    trans_stmt_list ~parent_strict:strictness start_loc raw_stmts annots
+  in
+  (* A script never has annotations *)
   mk_exp (Script (strictness, stmts)) (offset loc) []
-
-(* The script never has annotations *)

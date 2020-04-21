@@ -14,18 +14,17 @@ let rec exp_stx_eq e1 e2 =
   | Unary_op (op, e), Unary_op (op', e') -> op = op' && exp_stx_eq e e'
   | Delete e, Delete e' | Throw e, Throw e' -> exp_stx_eq e e'
   | While (e1, e2), While (e1', e2')
-   |Comma (e1, e2), Comma (e1', e2')
-   |Assign (e1, e2), Assign (e1', e2')
-   |DoWhile (e1, e2), DoWhile (e1', e2')
-   |CAccess (e1, e2), CAccess (e1', e2')
-   |With (e1, e2), With (e1', e2') ->
-      exp_stx_eq e1 e1' && exp_stx_eq e2 e2'
+  | Comma (e1, e2), Comma (e1', e2')
+  | Assign (e1, e2), Assign (e1', e2')
+  | DoWhile (e1, e2), DoWhile (e1', e2')
+  | CAccess (e1, e2), CAccess (e1', e2')
+  | With (e1, e2), With (e1', e2') -> exp_stx_eq e1 e1' && exp_stx_eq e2 e2'
   | BinOp (e1, op, e2), BinOp (e1', op', e2') ->
       op = op' && exp_stx_eq e1 e1' && exp_stx_eq e2 e2'
   | AssignOp (e1, op, e2), AssignOp (e1', op', e2') ->
       op = op' && exp_stx_eq e1 e1' && exp_stx_eq e2 e2'
   | ForIn (e1, e2, e3), ForIn (e1', e2', e3')
-   |ConditionalOp (e1, e2, e3), ConditionalOp (e1', e2', e3') ->
+  | ConditionalOp (e1, e2, e3), ConditionalOp (e1', e2', e3') ->
       exp_stx_eq e1 e1' && exp_stx_eq e3 e3' && exp_stx_eq e3 e3'
   | If (e1, e2, o), If (e1', e2', o') ->
       exp_stx_eq e1 e1' && exp_stx_eq e2 e2' && opt_exp_eq o o'
@@ -34,12 +33,12 @@ let rec exp_stx_eq e1 e2 =
   | Call (e, l), Call (e', l') | New (e, l), New (e', l') ->
       exp_stx_eq e e' && List.for_all2 exp_stx_eq l l'
   | FunctionExp (b, o, l, e), FunctionExp (b', o', l', e')
-   |Function (b, o, l, e), Function (b', o', l', e') ->
+  | Function (b, o, l, e), Function (b', o', l', e') ->
       b = b' && o = o' && l = l' && exp_stx_eq e e'
   | Obj l, Obj l' ->
       List.for_all2
         (fun (pn, pt, e) (pn', pt', e') ->
-          pn = pn' && pt = pt' && exp_stx_eq e e' )
+          pn = pn' && pt = pt' && exp_stx_eq e e')
         l l'
   | Block l, Block l' -> list_exp_eq l l'
   | Array l, Array l' -> List.for_all2 opt_exp_eq l l'
@@ -51,9 +50,9 @@ let rec exp_stx_eq e1 e2 =
   | Try (e, o, oe), Try (e', o', oe') ->
       exp_stx_eq e e'
       && ( match (o, o') with
-         | None, None -> true
+         | None, None                 -> true
          | Some (s, e), Some (s', e') -> s = s' && exp_stx_eq e e'
-         | _, _ -> false )
+         | _, _                       -> false )
       && opt_exp_eq oe oe'
   | Switch (e, l), Switch (e', l') ->
       exp_stx_eq e e'
@@ -63,13 +62,15 @@ let rec exp_stx_eq e1 e2 =
   | s1, s2 -> s1 = s2
 
 and switch_case_eq c c' =
-  match (c, c') with Case e, Case e' -> exp_stx_eq e e' | c, c' -> c = c'
+  match (c, c') with
+  | Case e, Case e' -> exp_stx_eq e e'
+  | c, c'           -> c = c'
 
 and opt_exp_eq o o' =
   match (o, o') with
-  | None, None -> true
+  | None, None      -> true
   | Some o, Some o' -> exp_stx_eq o o'
-  | _, _ -> false
+  | _, _            -> false
 
 and list_exp_eq l l' = List.for_all2 exp_stx_eq l l'
 
@@ -77,29 +78,29 @@ let assert_equal' = assert_equal
 
 let assert_exp_eq = assert_equal' ~cmp:exp_stx_eq
 
-let add_script e = mk_exp (Script (false, [e])) 0
+let add_script e = mk_exp (Script (false, [ e ])) 0
 
 let rm_node e =
   match e.exp_stx with
-  | Script (_, [e]) | Label (_, e) -> e
+  | Script (_, [ e ]) | Label (_, e) -> e
   | _ -> assert_failure "Could not find a matching Script or Label tag."
 
 (** * Tests begin here * **)
 
 let test_var test_ctx =
   let exp = parse_string_exn "var x" in
-  assert_exp_eq (add_script (mk_exp (VarDec [("x", None)]) 0)) exp
+  assert_exp_eq (add_script (mk_exp (VarDec [ ("x", None) ]) 0)) exp
 
 let test_var_value test_ctx =
   let exp = parse_string_exn "var x = 5" in
   let num_5 = mk_exp (Num 5.0) 8 in
-  assert_exp_eq (add_script (mk_exp (VarDec [("x", Some num_5)]) 0)) exp
+  assert_exp_eq (add_script (mk_exp (VarDec [ ("x", Some num_5) ]) 0)) exp
 
 let test_var_list test_ctx =
   let exp = parse_string_exn "var x = 5, y = null" in
   let num_5 = mk_exp (Num 5.0) 8 in
   let nul = mk_exp Null 15 in
-  let vardec = mk_exp (VarDec [("x", Some num_5); ("y", Some nul)]) 0 in
+  let vardec = mk_exp (VarDec [ ("x", Some num_5); ("y", Some nul) ]) 0 in
   assert_exp_eq (add_script vardec) exp
 
 let test_regexp test_ctx =
@@ -132,7 +133,7 @@ let test_array_literal test_ctx =
   let x = mk_exp (Var "x") 2 in
   let y = mk_exp (Var "y") 5 in
   assert_exp_eq
-    (add_script (mk_exp (Array [None; Some x; None; Some y]) 0))
+    (add_script (mk_exp (Array [ None; Some x; None; Some y ]) 0))
     exp
 
 let test_ge test_ctx =
@@ -215,7 +216,7 @@ let test_for test_ctx =
   let one = mk_exp (Num 1.0) 0 in
   let x = mk_exp (Var "x") 0 in
   let assignment = mk_exp (Assign (x, one)) 0 in
-  let block = mk_exp (Block [assignment]) 0 in
+  let block = mk_exp (Block [ assignment ]) 0 in
   let loop = mk_exp (For (empty, condition, inc, block)) 0 in
   assert_exp_eq (add_script loop) exp
 
@@ -223,7 +224,7 @@ let test_forin test_ctx =
   let exp =
     parse_string_exn "for (var prop in oldObj) { obj[prop] = oldObj[prop] }"
   in
-  let varprop = mk_exp (VarDec [("prop", None)]) 5 in
+  let varprop = mk_exp (VarDec [ ("prop", None) ]) 5 in
   let oldObj1 = mk_exp (Var "oldObj") 17 in
   let obj = mk_exp (Var "obj") 27 in
   let prop1 = mk_exp (Var "prop") 31 in
@@ -232,7 +233,7 @@ let test_forin test_ctx =
   let prop2 = mk_exp (Var "prop") 46 in
   let ca2 = mk_exp (CAccess (oldObj2, prop2)) 39 in
   let assignment = mk_exp (Assign (ca1, ca2)) 27 in
-  let block = mk_exp (Block [assignment]) 25 in
+  let block = mk_exp (Block [ assignment ]) 25 in
   assert_exp_eq (add_script (mk_exp (ForIn (varprop, oldObj1, block)) 0)) exp
 
 let test_assign_add test_ctx =
@@ -393,7 +394,7 @@ let test_bitxor test_ctx =
 let test_return test_ctx =
   let exp = parse_string_exn "function f() {return}" in
   let r = mk_exp (Return None) 14 in
-  let block = mk_exp (Block [r]) 13 in
+  let block = mk_exp (Block [ r ]) 13 in
   assert_exp_eq
     (add_script (mk_exp (Function (false, Some "f", [], block)) 0))
     exp
@@ -403,7 +404,7 @@ let test_return_exp test_ctx =
   let g = mk_exp (Var "g") 21 in
   let gcall = mk_exp (Call (g, [])) 21 in
   let r = mk_exp (Return (Some gcall)) 14 in
-  let block = mk_exp (Block [r]) 13 in
+  let block = mk_exp (Block [ r ]) 13 in
   assert_exp_eq
     (add_script (mk_exp (Function (false, Some "f", [], block)) 0))
     exp
@@ -416,7 +417,7 @@ let test_do_while test_ctx =
   let a = mk_exp (Var "a") 0 in
   let one = mk_exp (Num 1.0) 0 in
   let assignment = mk_exp (Assign (a, one)) 0 in
-  let body = mk_exp (Block [assignment]) 0 in
+  let body = mk_exp (Block [ assignment ]) 0 in
   let loop = mk_exp (DoWhile (body, condition)) 0 in
   let () =
     OUnit2.logf test_ctx `Info "%s"
@@ -437,7 +438,7 @@ let test_continue test_ctx =
   let a = mk_exp (Var "a") 0 in
   let app = mk_exp (Unary_op (Post_Incr, a)) 0 in
   let cont = mk_exp (Continue None) 0 in
-  let body = mk_exp (Block [app; cont]) 0 in
+  let body = mk_exp (Block [ app; cont ]) 0 in
   assert_exp_eq (add_script (mk_exp (While (condition, body)) 0)) exp
 
 let test_continue_label test_ctx =
@@ -448,7 +449,7 @@ let test_continue_label test_ctx =
   let a = mk_exp (Var "a") 0 in
   let app = mk_exp (Unary_op (Post_Incr, a)) 0 in
   let cont = mk_exp (Continue (Some "test")) 0 in
-  let body = mk_exp (Block [app; cont]) 0 in
+  let body = mk_exp (Block [ app; cont ]) 0 in
   let loop = mk_exp (While (condition, body)) 0 in
   assert_exp_eq (add_script (mk_exp (Label ("test", loop)) 0)) exp
 
@@ -460,7 +461,7 @@ let test_break test_ctx =
   let a = mk_exp (Var "a") 0 in
   let app = mk_exp (Unary_op (Post_Incr, a)) 0 in
   let cont = mk_exp (Break None) 0 in
-  let body = mk_exp (Block [app; cont]) 0 in
+  let body = mk_exp (Block [ app; cont ]) 0 in
   assert_exp_eq (add_script (mk_exp (While (condition, body)) 0)) exp
 
 let test_break_label test_ctx =
@@ -471,16 +472,16 @@ let test_break_label test_ctx =
   let a = mk_exp (Var "a") 0 in
   let app = mk_exp (Unary_op (Post_Incr, a)) 0 in
   let cont = mk_exp (Break (Some "test")) 0 in
-  let body = mk_exp (Block [app; cont]) 0 in
+  let body = mk_exp (Block [ app; cont ]) 0 in
   let loop = mk_exp (While (condition, body)) 0 in
   assert_exp_eq (add_script (mk_exp (Label ("test", loop)) 0)) exp
 
 let test_try_catch test_ctx =
   let exp = parse_string_exn "try {a} catch (b) {c}" in
   let a = mk_exp (Var "a") 5 in
-  let ablock = mk_exp (Block [a]) 4 in
+  let ablock = mk_exp (Block [ a ]) 4 in
   let c = mk_exp (Var "c") 19 in
-  let cblock = mk_exp (Block [c]) 18 in
+  let cblock = mk_exp (Block [ c ]) 18 in
   assert_exp_eq
     (add_script (mk_exp (Try (ablock, Some ("b", cblock), None)) 0))
     exp
@@ -488,11 +489,11 @@ let test_try_catch test_ctx =
 let test_try_catch_finally test_ctx =
   let exp = parse_string_exn "try {a} catch (b) {c} finally {d}" in
   let a = mk_exp (Var "a") 5 in
-  let ablock = mk_exp (Block [a]) 4 in
+  let ablock = mk_exp (Block [ a ]) 4 in
   let c = mk_exp (Var "c") 19 in
-  let cblock = mk_exp (Block [c]) 18 in
+  let cblock = mk_exp (Block [ c ]) 18 in
   let d = mk_exp (Var "d") 31 in
-  let dblock = mk_exp (Block [d]) 30 in
+  let dblock = mk_exp (Block [ d ]) 30 in
   assert_exp_eq
     (add_script (mk_exp (Try (ablock, Some ("b", cblock), Some dblock)) 0))
     exp
@@ -500,32 +501,31 @@ let test_try_catch_finally test_ctx =
 let test_try_finally test_ctx =
   let exp = parse_string_exn "try {a} finally {d}" in
   let a = mk_exp (Var "a") 5 in
-  let ablock = mk_exp (Block [a]) 4 in
+  let ablock = mk_exp (Block [ a ]) 4 in
   let d = mk_exp (Var "d") 17 in
-  let dblock = mk_exp (Block [d]) 16 in
+  let dblock = mk_exp (Block [ d ]) 16 in
   assert_exp_eq (add_script (mk_exp (Try (ablock, None, Some dblock)) 0)) exp
 
 let test_switch test_ctx =
   let exp =
-    parse_string_exn
-      "switch (a) { case 1 : b; break; default : d; case 2 : c }"
+    parse_string_exn "switch (a) { case 1 : b; break; default : d; case 2 : c }"
   in
   let a = mk_exp (Var "a") 8 in
   let one = mk_exp (Num 1.0) 18 in
   let b = mk_exp (Var "b") 22 in
   let break = mk_exp (Break None) 25 in
-  let block1 = mk_exp (Block [b; break]) 13 in
+  let block1 = mk_exp (Block [ b; break ]) 13 in
   let d = mk_exp (Var "d") 42 in
-  let block2 = mk_exp (Block [d]) 32 in
+  let block2 = mk_exp (Block [ d ]) 32 in
   let two = mk_exp (Num 2.0) 50 in
   let c = mk_exp (Var "c") 54 in
-  let block3 = mk_exp (Block [c]) 45 in
+  let block3 = mk_exp (Block [ c ]) 45 in
   assert_exp_eq
     (add_script
        (mk_exp
           (Switch
-             ( a
-             , [(Case one, block1); (DefaultCase, block2); (Case two, block3)]
+             ( a,
+               [ (Case one, block1); (DefaultCase, block2); (Case two, block3) ]
              ))
           0))
     exp
@@ -538,25 +538,26 @@ let test_script_strict test_ctx =
   let exp = parse_string_exn "'use strict'; function f() {return}" in
   let string_exp = mk_exp (String "use strict") 0 in
   let r = mk_exp (Return None) 28 in
-  let block = mk_exp (Block [r]) 14 in
+  let block = mk_exp (Block [ r ]) 14 in
   let script =
     mk_exp
       (Script
-         (true, [string_exp; mk_exp (Function (true, Some "f", [], block)) 14]))
+         (true, [ string_exp; mk_exp (Function (true, Some "f", [], block)) 14 ]))
       0
   in
   assert_exp_eq script exp
 
-  let test_script_strict_break test_ctx =
+let test_script_strict_break test_ctx =
   let exp = parse_string_exn {|'use\
    strict'; function f() {return}|} in
   let string_exp = mk_exp (String "use   strict") 0 in
   let r = mk_exp (Return None) 28 in
-  let block = mk_exp (Block [r]) 14 in
+  let block = mk_exp (Block [ r ]) 14 in
   let script =
     mk_exp
       (Script
-         (false, [string_exp; mk_exp (Function (false, Some "f", [], block)) 14]))
+         ( false,
+           [ string_exp; mk_exp (Function (false, Some "f", [], block)) 14 ] ))
       0
   in
   assert_exp_eq script exp
@@ -564,17 +565,19 @@ let test_script_strict test_ctx =
 let test_script_not_strict test_ctx =
   let exp = parse_string_exn "{'use strict'}; function f() {return}" in
   let string_exp = mk_exp (String "use strict") 1 in
-  let block_strict = mk_exp (Block [string_exp]) 0 in
+  let block_strict = mk_exp (Block [ string_exp ]) 0 in
   let r = mk_exp (Return None) 30 in
-  let block = mk_exp (Block [r]) 29 in
+  let block = mk_exp (Block [ r ]) 29 in
   let empty = mk_exp Skip 14 in
   let script =
     mk_exp
       (Script
-         ( false
-         , [ block_strict
-           ; empty
-           ; mk_exp (Function (false, Some "f", [], block)) 16 ] ))
+         ( false,
+           [
+             block_strict;
+             empty;
+             mk_exp (Function (false, Some "f", [], block)) 16;
+           ] ))
       0
   in
   assert_exp_eq script exp
@@ -583,42 +586,45 @@ let test_fun_strict test_ctx =
   let exp = parse_string_exn "function f() {'use strict'; return}" in
   let string_exp = mk_exp (String "use strict") 14 in
   let r = mk_exp (Return None) 28 in
-  let block = mk_exp (Block [string_exp; r]) 13 in
+  let block = mk_exp (Block [ string_exp; r ]) 13 in
   let script =
     mk_exp
-      (Script (false, [mk_exp (Function (true, Some "f", [], block)) 0]))
+      (Script (false, [ mk_exp (Function (true, Some "f", [], block)) 0 ]))
       0
   in
   assert_exp_eq script exp
 
 let test_fun_strict_nested test_ctx =
-  let exp = parse_string_exn {|
+  let exp =
+    parse_string_exn
+      {|
   function f1() {
   "use strict";
   return (function () {return})
-  }|} in
+  }|}
+  in
   let use_strict_exp = mk_exp (String "use strict") 14 in
   let rn = mk_exp (Return None) 0 in
-  let block_nes = mk_exp (Block ([rn])) 0 in
+  let block_nes = mk_exp (Block [ rn ]) 0 in
   let f_exp = mk_exp (FunctionExp (true, None, [], block_nes)) 0 in
   let r = mk_exp (Return (Some f_exp)) 28 in
-  let block = mk_exp (Block [use_strict_exp; r]) 13 in
+  let block = mk_exp (Block [ use_strict_exp; r ]) 13 in
   let script =
     mk_exp
-      (Script (false, [mk_exp (Function (true, Some "f1", [], block)) 0]))
+      (Script (false, [ mk_exp (Function (true, Some "f1", [], block)) 0 ]))
       0
   in
   assert_exp_eq script exp
 
-  let test_fun_strict_break test_ctx =
+let test_fun_strict_break test_ctx =
   let exp = parse_string_exn {|function f() {'use\
    strict'; return}|} in
   let string_exp = mk_exp (String "use   strict") 14 in
   let r = mk_exp (Return None) 32 in
-  let block = mk_exp (Block [string_exp; r]) 0 in
+  let block = mk_exp (Block [ string_exp; r ]) 0 in
   let script =
     mk_exp
-      (Script (false, [mk_exp (Function (false, Some "f", [], block)) 0]))
+      (Script (false, [ mk_exp (Function (false, Some "f", [], block)) 0 ]))
       0
   in
   assert_exp_eq script exp
@@ -627,22 +633,22 @@ let test_getter test_ctx =
   let exp = parse_string_exn "a = {get y() { return 0;}};" in
   let zero = mk_exp (Num 0.0) 22 in
   let r = mk_exp (Return (Some zero)) 15 in
-  let block = mk_exp (Block [r]) 13 in
+  let block = mk_exp (Block [ r ]) 13 in
   let getter = mk_exp (FunctionExp (false, None, [], block)) 9 in
-  let obj = mk_exp (Obj [(PropnameId "y", PropbodyGet, getter)]) 4 in
+  let obj = mk_exp (Obj [ (PropnameId "y", PropbodyGet, getter) ]) 4 in
   let a = mk_exp (Var "a") 0 in
   let assign = mk_exp (Assign (a, obj)) 0 in
-  let script = mk_exp (Script (false, [assign])) 0 in
+  let script = mk_exp (Script (false, [ assign ])) 0 in
   assert_exp_eq script exp
 
 let test_setter test_ctx =
   let exp = parse_string_exn "a = {set y(val) {}};" in
   let block = mk_exp (Block []) 16 in
-  let setter = mk_exp (FunctionExp (false, None, ["val"], block)) 9 in
-  let obj = mk_exp (Obj [(PropnameId "y", PropbodySet, setter)]) 4 in
+  let setter = mk_exp (FunctionExp (false, None, [ "val" ], block)) 9 in
+  let obj = mk_exp (Obj [ (PropnameId "y", PropbodySet, setter) ]) 4 in
   let a = mk_exp (Var "a") 0 in
   let assign = mk_exp (Assign (a, obj)) 0 in
-  let script = mk_exp (Script (false, [assign])) 0 in
+  let script = mk_exp (Script (false, [ assign ])) 0 in
   assert_exp_eq script exp
 
 let test_obj_init test_ctx =
@@ -653,14 +659,16 @@ let test_obj_init test_ctx =
   let obj =
     mk_exp
       (Obj
-         [ (PropnameNum 1.0, PropbodyVal, b)
-         ; (PropnameString "abc", PropbodyVal, c)
-         ; (PropnameId "name", PropbodyVal, d) ])
+         [
+           (PropnameNum 1.0, PropbodyVal, b);
+           (PropnameString "abc", PropbodyVal, c);
+           (PropnameId "name", PropbodyVal, d);
+         ])
       4
   in
   let a = mk_exp (Var "a") 0 in
   let assign = mk_exp (Assign (a, obj)) 0 in
-  let script = mk_exp (Script (false, [assign])) 0 in
+  let script = mk_exp (Script (false, [ assign ])) 0 in
   assert_exp_eq script exp
 
 (* TODO: Find why this test is not used anymore
@@ -680,78 +688,79 @@ let test_obj_init test_ctx =
 
 let suite =
   "Testing_Parser"
-  >::: [ "test var" >:: test_var
-       ; "test var with assignment" >:: test_var_value
-       ; "test var list" >:: test_var_list
-       ; "test regexp" >:: test_regexp
-       ; "test regexp with flags" >:: test_regexp_with_flags
-       ; "test not" >:: test_not
-       ; "test_caccess" >:: test_caccess
-       ; "test_and" >:: test_and
-       ; "test_array_literal" >:: test_array_literal
-       ; "test_ge" >:: test_ge
-       ; "test_or" >:: test_or
-       ; "test_not_triple_eq" >:: test_not_triple_eq
-       ; "test_hook" >:: test_hook
-       ; "test_instanceof" >:: test_instanceof
-       ; "test_typeof" >:: test_typeof
-       ; "test_pos" >:: test_pos
-       ; "test_dec_pre" >:: test_dec_pre
-       ; "test_dec_post" >:: test_dec_post
-       ; "test_inc_pre" >:: test_inc_pre
-       ; "test_inc_post" >:: test_inc_post
-       ; "test_for" >:: test_for
-       ; "test_forin" >:: test_forin
-       ; "test_mod" >:: test_mod
-       ; "test_ursh" >:: test_ursh
-       ; "test_lsh" >:: test_lsh
-       ; "test_rsh" >:: test_rsh
-       ; "test_bitand" >:: test_bitand
-       ; "test_bitor" >:: test_bitor
-       ; "test_bitxor" >:: test_bitxor
-       ; "test_notequal" >:: test_notequal
-       ; "test_gt" >:: test_gt
-       ; "test_in" >:: test_in
-       ; "test_comma1" >:: test_comma1
-       ; "test_comma2" >:: test_comma2
-       ; "test_negative" >:: test_negative
-       ; "test_bitnot" >:: test_bitnot
-       ; "test_void" >:: test_void
-       ; "test_assign_add" >:: test_assign_add
-       ; "test_assign_sub" >:: test_assign_sub
-       ; "test_assign_mul" >:: test_assign_mul
-       ; "test_assign_div" >:: test_assign_div
-       ; "test_assign_mod" >:: test_assign_mod
-       ; "test_assign_ursh" >:: test_assign_ursh
-       ; "test_assign_lsh" >:: test_assign_lsh
-       ; "test_assign_rsh" >:: test_assign_rsh
-       ; "test_assign_bitand" >:: test_assign_bitand
-       ; "test_assign_bitor" >:: test_assign_bitor
-       ; "test_assign_bitxor" >:: test_assign_bitxor
-       ; "test_return" >:: test_return
-       ; "test_return_exp" >:: test_return_exp
-       ; "test_do_while" >:: test_do_while
-       ; "test_delete" >:: test_delete
-       ; "test_continue" >:: test_continue
-       ; "test_continue_label" >:: test_continue_label
-       ; "test_break" >:: test_break
-       ; "test_break_label" >:: test_break_label
-       ; "test_try_catch" >:: test_try_catch
-       ; "test_try_catch_finally" >:: test_try_catch_finally
-       ; "test_try_finally" >:: test_try_finally
-       ; "test_switch" >:: test_switch
-       ; "test_debugger" >:: test_debugger
-       ; "test_script_strict" >:: test_script_strict
-       ; "test_script_strict_break" >:: test_script_strict_break
-       ; "test_script_not_strict" >:: test_script_not_strict
-       ; "test_fun_strict" >:: test_fun_strict
-       ; "test_fun_strict_nested" >:: test_fun_strict_nested
-       ; "test_fun_strict_break" >:: test_fun_strict_break
-       ; "test_getter" >:: test_getter
-       ; "test_setter" >:: test_setter
-       ; "test_obj_init" >:: test_obj_init
-       (* "test_fun_annot" >:: test_fun_annot; *)
-        ]
+  >::: [
+         "test var" >:: test_var;
+         "test var with assignment" >:: test_var_value;
+         "test var list" >:: test_var_list;
+         "test regexp" >:: test_regexp;
+         "test regexp with flags" >:: test_regexp_with_flags;
+         "test not" >:: test_not;
+         "test_caccess" >:: test_caccess;
+         "test_and" >:: test_and;
+         "test_array_literal" >:: test_array_literal;
+         "test_ge" >:: test_ge;
+         "test_or" >:: test_or;
+         "test_not_triple_eq" >:: test_not_triple_eq;
+         "test_hook" >:: test_hook;
+         "test_instanceof" >:: test_instanceof;
+         "test_typeof" >:: test_typeof;
+         "test_pos" >:: test_pos;
+         "test_dec_pre" >:: test_dec_pre;
+         "test_dec_post" >:: test_dec_post;
+         "test_inc_pre" >:: test_inc_pre;
+         "test_inc_post" >:: test_inc_post;
+         "test_for" >:: test_for;
+         "test_forin" >:: test_forin;
+         "test_mod" >:: test_mod;
+         "test_ursh" >:: test_ursh;
+         "test_lsh" >:: test_lsh;
+         "test_rsh" >:: test_rsh;
+         "test_bitand" >:: test_bitand;
+         "test_bitor" >:: test_bitor;
+         "test_bitxor" >:: test_bitxor;
+         "test_notequal" >:: test_notequal;
+         "test_gt" >:: test_gt;
+         "test_in" >:: test_in;
+         "test_comma1" >:: test_comma1;
+         "test_comma2" >:: test_comma2;
+         "test_negative" >:: test_negative;
+         "test_bitnot" >:: test_bitnot;
+         "test_void" >:: test_void;
+         "test_assign_add" >:: test_assign_add;
+         "test_assign_sub" >:: test_assign_sub;
+         "test_assign_mul" >:: test_assign_mul;
+         "test_assign_div" >:: test_assign_div;
+         "test_assign_mod" >:: test_assign_mod;
+         "test_assign_ursh" >:: test_assign_ursh;
+         "test_assign_lsh" >:: test_assign_lsh;
+         "test_assign_rsh" >:: test_assign_rsh;
+         "test_assign_bitand" >:: test_assign_bitand;
+         "test_assign_bitor" >:: test_assign_bitor;
+         "test_assign_bitxor" >:: test_assign_bitxor;
+         "test_return" >:: test_return;
+         "test_return_exp" >:: test_return_exp;
+         "test_do_while" >:: test_do_while;
+         "test_delete" >:: test_delete;
+         "test_continue" >:: test_continue;
+         "test_continue_label" >:: test_continue_label;
+         "test_break" >:: test_break;
+         "test_break_label" >:: test_break_label;
+         "test_try_catch" >:: test_try_catch;
+         "test_try_catch_finally" >:: test_try_catch_finally;
+         "test_try_finally" >:: test_try_finally;
+         "test_switch" >:: test_switch;
+         "test_debugger" >:: test_debugger;
+         "test_script_strict" >:: test_script_strict;
+         "test_script_strict_break" >:: test_script_strict_break;
+         "test_script_not_strict" >:: test_script_not_strict;
+         "test_fun_strict" >:: test_fun_strict;
+         "test_fun_strict_nested" >:: test_fun_strict_nested;
+         "test_fun_strict_break" >:: test_fun_strict_break;
+         "test_getter" >:: test_getter;
+         "test_setter" >:: test_setter;
+         "test_obj_init" >:: test_obj_init;
+         (* "test_fun_annot" >:: test_fun_annot; *)
+       ]
 
 let json = Conf.make_bool "json" true "test json parser"
 

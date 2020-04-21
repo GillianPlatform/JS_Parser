@@ -31,8 +31,8 @@ type bool_op = And | Or
 
 type bin_op =
   | Comparison of comparison_op
-  | Arith of arith_op
-  | Boolean of bool_op
+  | Arith      of arith_op
+  | Boolean    of bool_op
 
 type unary_op =
   | Not
@@ -83,100 +83,103 @@ type annotation_type =
 
 (* Function called in JSIL only *)
 
-type annotation = {annot_type: annotation_type; annot_formula: string}
+type annotation = { annot_type : annotation_type; annot_formula : string }
 
 type propname =
-  | PropnameId of string
+  | PropnameId     of string
   | PropnameString of string
-  | PropnameNum of float
+  | PropnameNum    of float
 
 type proptype = PropbodyVal | PropbodyGet | PropbodySet
 
-type exp = {exp_offset: int; exp_stx: exp_syntax; exp_annot: annotation list}
+type exp = {
+  exp_offset : int;
+  exp_stx : exp_syntax;
+  exp_annot : annotation list;
+}
 
 and exp_syntax =
-  | Num of float
+  | Num           of float
   (* 17 *)
-  | String of string
+  | String        of string
   (* "abc" *)
-  | Label of string * exp
+  | Label         of string * exp
   (* label: exp *)
   | Null
   (* null *)
-  | Bool of bool
+  | Bool          of bool
   (* true, false *)
-  | Var of var
+  | Var           of var
   (* x *)
-  | If of exp * exp * exp option
+  | If            of exp * exp * exp option
   (* if (e){e}{e} *)
-  | While of exp * exp
+  | While         of exp * exp
   (* while (e){e} *)
-  | DoWhile of exp * exp
+  | DoWhile       of exp * exp
   (* do {e} while e *)
-  | VarDec of (var * exp option) list
+  | VarDec        of (var * exp option) list
   (* var x *)
   | This
   (* this *)
-  | Delete of exp
+  | Delete        of exp
   (* delete e *)
-  | Comma of exp * exp
+  | Comma         of exp * exp
   (* e, e *)
-  | Unary_op of unary_op * exp
+  | Unary_op      of unary_op * exp
   (* unary_op e *)
-  | BinOp of exp * bin_op * exp
+  | BinOp         of exp * bin_op * exp
   (* e op e*)
-  | Access of exp * string
+  | Access        of exp * string
   (* e.x *)
-  | Call of exp * exp list
+  | Call          of exp * exp list
   (* e(e1,..,en) *)
-  | Assign of exp * exp
+  | Assign        of exp * exp
   (* e = e *)
-  | AssignOp of exp * arith_op * exp
+  | AssignOp      of exp * arith_op * exp
   (* e op= e *)
-  | FunctionExp of bool * string option * var list * exp
+  | FunctionExp   of bool * string option * var list * exp
   (* function (x1,..,x2){e} *)
-  | Function of bool * string option * var list * exp
+  | Function      of bool * string option * var list * exp
   (* function x(x1,..,x2){e} *)
-  | New of exp * exp list
+  | New           of exp * exp list
   (* new e(e1,..,en) *)
-  | Obj of (propname * proptype * exp) list
+  | Obj           of (propname * proptype * exp) list
   (* {x_i : e_i} *)
-  | Array of exp option list
+  | Array         of exp option list
   (* [e1,...,en] *)
-  | CAccess of exp * exp
+  | CAccess       of exp * exp
   (* e[e] *)
-  | With of exp * exp
+  | With          of exp * exp
   (* with (e){e} *)
   | Skip
-  | Throw of exp
+  | Throw         of exp
   (* throw e *)
-  | Return of exp option
+  | Return        of exp option
   (* return e *)
-  | RegExp of string * string
+  | RegExp        of string * string
   (* / pattern / flags *)
-  | For of exp option * exp option * exp option * exp
+  | For           of exp option * exp option * exp option * exp
   (* for (e1; e2; e3) {e4} *)
-  | ForIn of exp * exp * exp
+  | ForIn         of exp * exp * exp
   (* for (exp in exp) {exp}*)
-  | Break of string option
-  | Continue of string option
-  | Try of exp * (string * exp) option * exp option
+  | Break         of string option
+  | Continue      of string option
+  | Try           of exp * (string * exp) option * exp option
   (* try e catch e finally e *)
-  | Switch of exp * (switch_case * exp) list
+  | Switch        of exp * (switch_case * exp) list
   | Debugger
   | ConditionalOp of exp * exp * exp
   (* (e ? e : e) *)
-  | Block of exp list
+  | Block         of exp list
   (* { es } *)
-  | Script of bool * exp list
+  | Script        of bool * exp list
 
 (* top node *)
 and switch_case = Case of exp | DefaultCase
 
-let mk_exp s o annots = {exp_offset= o; exp_stx= s; exp_annot= annots}
-
+let mk_exp s o annots = { exp_offset = o; exp_stx = s; exp_annot = annots }
 
 (** Returns true if the given ast is a Script AND is in Strict mode *)
 let script_and_strict = function
-  | Script(true, _) -> true
-  | _ -> false
+  | Script (true, _) -> true
+  | _                -> false
