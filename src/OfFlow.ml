@@ -724,7 +724,7 @@ and transform_expression
           exprs_args
       in
       mk_exp (Call (trans_callee, trans_args)) off leading_annots
-  | Expression.Function fn ->
+  | Expression.Function fn | Expression.ArrowFunction fn ->
       transform_function ~parent_strict ~expression:true first_pos
         leading_annots inner_annots fn
   | _ -> raise (ParserError (Unhandled_Expression off))
@@ -1239,8 +1239,7 @@ let transform_program ~parse_annotations ~force_strict (prog : loc program) =
   let loc, raw_stmts, cmts = prog in
   let strictness = force_strict || block_is_strict raw_stmts in
   let annots = if parse_annotations then get_annotations cmts else [] in
-  let stmts =
-    trans_stmt_list ~parent_strict:strictness start_loc raw_stmts annots
+  let stmts = trans_stmt_list ~parent_strict:strictness start_loc raw_stmts annots
   in
   (* A script never has annotations *)
   mk_exp (Script (strictness, stmts)) (offset loc) []
