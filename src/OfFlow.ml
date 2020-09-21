@@ -795,6 +795,10 @@ and create_assignment lpat pattern exp =
             (ParserError
                (NotEcmaScript5 ("ES5: Array pattern assignment without rhs", off)))
       | Some exp ->
+          let aux_var = Utils.fresh_aux_var () in
+          let aux_exp = { exp with exp_annot = [] } in
+          let aux_var_exp = { aux_exp with exp_stx = Var aux_var} in
+          (aux_var, Some exp) ::
           List.concat
             (List.mapi
                (fun i oelement ->
@@ -804,15 +808,10 @@ and create_assignment lpat pattern exp =
                      match element with
                      | Element (_, Identifier { name = _, str; _ }) ->
                          let propname : string = str in
-                         let index =
-                           {
-                             exp_offset = exp.exp_offset;
-                             exp_stx = Num (float_of_int i);
-                             exp_annot = [];
-                           }
+                         let index = { aux_exp with exp_stx = Num (float_of_int i) }
                          in
                          let propvalue =
-                           { exp with exp_stx = CAccess (exp, index) }
+                           { aux_exp with exp_stx = CAccess (aux_var_exp, index) }
                          in
                          [ (propname, Some propvalue) ]
                      | Element _ ->
