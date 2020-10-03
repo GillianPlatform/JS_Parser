@@ -795,7 +795,22 @@ and create_assignment lpat pattern exp =
             (ParserError
                (NotEcmaScript5 ("ES5: Array pattern assignment without rhs", off)))
       | Some exp ->
-          let aux_var = Utils.fresh_aux_var () in
+          let aux_var = List.fold_right (fun element ac ->
+            if ac <> None then ac
+            else (match element with
+            | None -> ac
+            | Some element ->
+              match element with
+                     | Element (_, Identifier { name = _, str; _ }) ->
+                        Some str
+                     | _ -> raise
+                     (ParserError
+                        (NotEcmaScript5
+                           ( "ES5: Only identifiers supported in array \
+                              pattern assignment",
+                             off ))))) elements None
+          in
+          let aux_var = Option.get aux_var in
           let aux_exp = { exp with exp_annot = [] } in
           let aux_var_exp = { aux_exp with exp_stx = Var aux_var} in
           (aux_var, Some exp) ::

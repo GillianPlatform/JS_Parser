@@ -3,8 +3,8 @@
   "version": "0.0.1",
   "description": "JS_Parser based on flow-parser",
   "license": "MIT",
-  "esy": { 
-    "build": [ [ "dune", "build", "-p", "JS_Parser" ] ], 
+  "esy": {
+    "build": [ [ "dune", "build", "-p", "JS_Parser" ] ],
     "buildsInSource": "_build",
     "exportedEnv": {
       "JS_PARSER_RUNTIME_PATH": {
@@ -27,7 +27,7 @@
     "@opam/batteries": "3.0.0"
   },
   "devDependencies": {
-    "@opam/merlin": "*",
+    "@opam/ocaml-lsp-server": "ocaml/ocaml-lsp:ocaml-lsp-server.opam#a66d82",
     "ocaml": "4.8.1000",
     "@opam/ounit": "*",
     "@opam/odoc": "*",
