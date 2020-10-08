@@ -724,7 +724,7 @@ and transform_expression
           exprs_args
       in
       mk_exp (Call (trans_callee, trans_args)) off leading_annots
-  | Expression.Function fn ->
+  | Expression.Function fn | Expression.ArrowFunction fn ->
       transform_function ~parent_strict ~expression:true first_pos
         leading_annots inner_annots fn
   | _ -> raise (ParserError (Unhandled_Expression off))
@@ -795,6 +795,25 @@ and create_assignment lpat pattern exp =
             (ParserError
                (NotEcmaScript5 ("ES5: Array pattern assignment without rhs", off)))
       | Some exp ->
+          let aux_var = List.fold_right (fun element ac ->
+            if ac <> None then ac
+            else (match element with
+            | None -> ac
+            | Some element ->
+              match element with
+                     | Element (_, Identifier { name = _, str; _ }) ->
+                        Some str
+                     | _ -> raise
+                     (ParserError
+                        (NotEcmaScript5
+                           ( "ES5: Only identifiers supported in array \
+                              pattern assignment",
+                             off ))))) elements None
+          in
+          let aux_var = Option.get aux_var in
+          let aux_exp = { exp with exp_annot = [] } in
+          let aux_var_exp = { aux_exp with exp_stx = Var aux_var} in
+          (aux_var, Some exp) ::
           List.concat
             (List.mapi
                (fun i oelement ->
@@ -804,15 +823,10 @@ and create_assignment lpat pattern exp =
                      match element with
                      | Element (_, Identifier { name = _, str; _ }) ->
                          let propname : string = str in
-                         let index =
-                           {
-                             exp_offset = exp.exp_offset;
-                             exp_stx = Num (float_of_int i);
-                             exp_annot = [];
-                           }
+                         let index = { aux_exp with exp_stx = Num (float_of_int i) }
                          in
                          let propvalue =
-                           { exp with exp_stx = CAccess (exp, index) }
+                           { aux_exp with exp_stx = CAccess (aux_var_exp, index) }
                          in
                          [ (propname, Some propvalue) ]
                      | Element _ ->
@@ -1239,8 +1253,7 @@ let transform_program ~parse_annotations ~force_strict (prog : loc program) =
   let loc, raw_stmts, cmts = prog in
   let strictness = force_strict || block_is_strict raw_stmts in
   let annots = if parse_annotations then get_annotations cmts else [] in
-  let stmts =
-    trans_stmt_list ~parent_strict:strictness start_loc raw_stmts annots
+  let stmts = trans_stmt_list ~parent_strict:strictness start_loc raw_stmts annots
   in
   (* A script never has annotations *)
   mk_exp (Script (strictness, stmts)) (offset loc) []

@@ -62,3 +62,15 @@ let map f (xs : 'a list) =
     ([], []) xs
 
 module Str_set = Set.Make (String)
+
+let fresh_sth (name : string) : (unit -> string) * (unit -> unit) =
+  let counter = ref 0 in
+  let f () =
+    let v = name ^ string_of_int !counter in
+    counter := !counter + 1;
+    v
+  in
+  let r () = counter := 0 in
+  (f, r)
+
+let fresh_aux_var, reset_aux_var = fresh_sth "aux_var_"
