@@ -1,9 +1,9 @@
 type t =
   | Overlapping_Syntax
-  | Unhandled_Statement  of int
-  | Unhandled_Expression of int
-  | NotEcmaScript5       of string * int
-  | UnusedAnnotations    of string list * int
+  | Unhandled_Statement  of Loc.t
+  | Unhandled_Expression of Loc.t
+  | NotEcmaScript5       of string * Loc.t
+  | UnusedAnnotations    of string list * Loc.t
   | FlowParser           of string * string
   | LoaderError          of string * int * string * string
 
@@ -11,22 +11,23 @@ let str = function
   | Overlapping_Syntax ->
       Printf.sprintf
         "Something went wrong with the parser, some syntax is overlapping"
-  | Unhandled_Statement i ->
-      Printf.sprintf
-        "The statement at offset %d is not handled. Maybe because it is not \
+  | Unhandled_Statement loc ->
+      Format.asprintf
+        "The statement at location %a is not handled. Maybe because it is not \
          part of ES5"
-        i
-  | Unhandled_Expression i ->
-      Printf.sprintf
-        "The expression at offset %d is not handled. Maybe because it is not \
+        Loc.pp loc
+  | Unhandled_Expression loc ->
+      Format.asprintf
+        "The expression at location %a is not handled. Maybe because it is not \
          part of ES5"
-        i
-  | NotEcmaScript5 (s, i) -> Printf.sprintf "%s at offset %d" s i
-  | UnusedAnnotations (sl, i) ->
-      Printf.sprintf
-        "At offset %d, the following annotations could not be placed in the AST:\n\
+        Loc.pp loc
+  | NotEcmaScript5 (s, loc) -> Format.asprintf "%s at location %a" s Loc.pp loc
+  | UnusedAnnotations (sl, loc) ->
+      Format.asprintf
+        "At location %a, the following annotations could not be placed in the \
+         AST:\n\
          %s"
-        i (String.concat "\n" sl)
+        Loc.pp loc (String.concat "\n" sl)
   | FlowParser (msg, error_type) ->
       Printf.sprintf "Flow_parser failed: %s: %s" msg error_type
   | LoaderError (path, line, func, msg) ->

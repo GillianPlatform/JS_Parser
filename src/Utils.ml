@@ -10,7 +10,7 @@ let check_parsing_errors errors =
       let pretty_messages =
         List.map
           (fun (loc, err) ->
-            let loc_str = Flow_parser.Loc.to_string loc in
+            let loc_str = Flow_parser.Loc.show loc in
             let err_str = Flow_parser.Parse_error.PP.error err in
             Printf.sprintf "%s: %s" loc_str err_str)
           errors

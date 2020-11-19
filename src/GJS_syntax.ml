@@ -93,7 +93,7 @@ type propname =
 type proptype = PropbodyVal | PropbodyGet | PropbodySet
 
 type exp = {
-  exp_offset : int;
+  exp_loc : Loc.t;
   exp_stx : exp_syntax;
   exp_annot : annotation list;
 }
@@ -177,7 +177,7 @@ and exp_syntax =
 (* top node *)
 and switch_case = Case of exp | DefaultCase
 
-let mk_exp s o annots = { exp_offset = o; exp_stx = s; exp_annot = annots }
+let mk_exp s o annots = { exp_loc = o; exp_stx = s; exp_annot = annots }
 
 (** Returns true if the given ast is a Script AND is in Strict mode *)
 let script_and_strict = function

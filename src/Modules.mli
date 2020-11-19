@@ -1,13 +1,16 @@
-open Flow_parser.Ast
+open Flow_parser.Flow_ast
+open Flow_parser
 
-type loc = Flow_parser.Loc.t
+type loc = Loc.t
 
 type file = Flow_parser.File_key.t
 
-type error = Flow_parser.Parser_common.Error.t
+type error = Flow_parser.Parse_error.t
 
-type parse_f = string -> file option -> loc program * (loc * error) list
+type parse_f =
+  string -> file option -> (loc, loc) Program.t * (loc * error) list
 
-type transform_f = loc program -> Syntax.exp
+type transform_f = (loc, loc) Program.t -> GJS_syntax.exp
 
-val parse_commonjs : parse_f -> transform_f -> string -> string -> Syntax.exp
+val parse_commonjs :
+  parse_f -> transform_f -> string -> string -> GJS_syntax.exp

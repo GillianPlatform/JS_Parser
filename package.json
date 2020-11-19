@@ -4,7 +4,14 @@
   "description": "JS_Parser based on flow-parser",
   "license": "MIT",
   "esy": {
-    "build": [ [ "dune", "build", "-p", "JS_Parser" ] ],
+    "build": [
+      [
+        "dune",
+        "build",
+        "-p",
+        "JS_Parser"
+      ]
+    ],
     "buildsInSource": "_build",
     "exportedEnv": {
       "JS_PARSER_RUNTIME_PATH": {
@@ -21,14 +28,14 @@
     "build:doc": "esy -C sh -c \"dune build @doc && cp -R _build/default/_doc/ doc/\""
   },
   "dependencies": {
-    "@esy-ocaml/flow-parser": "giltho/flow-parser#3a0fae6923e78f",
+    "@opam/flow_parser": "giltho/flow:flow_parser.opam#52301a2",
     "@opam/dune": "*",
     "ocaml": ">=4.6.0",
-    "@opam/batteries": "3.0.0"
+    "@opam/batteries": "^3.0.0"
   },
   "devDependencies": {
-    "@opam/ocaml-lsp-server": "ocaml/ocaml-lsp:ocaml-lsp-server.opam#a66d82",
-    "ocaml": "4.8.1000",
+    "@opam/ocaml-lsp-server": "*",
+    "ocaml": "4.11.1000",
     "@opam/ounit": "*",
     "@opam/odoc": "*",
     "@opam/utop": "*",

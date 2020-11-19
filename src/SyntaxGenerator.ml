@@ -1,4 +1,4 @@
-open Syntax
+open GJS_syntax
 
 module Constants = struct
   let module_obj = "Module"
@@ -18,7 +18,7 @@ module Constants = struct
   let loaded = "LOADED"
 end
 
-let mk_exp syntax : exp = mk_exp syntax (-1) []
+let mk_exp syntax : exp = mk_exp syntax Flow_parser.Loc.none []
 
 let expr_of_ident_str (str : string) : exp = mk_exp (Var str)
 

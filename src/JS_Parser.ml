@@ -1,4 +1,4 @@
-module Syntax = Syntax
+module Syntax = GJS_syntax
 module PrettyPrint = PrettyPrint
 module Error = Error
 

@@ -1,16 +1,20 @@
-open Flow_parser.Ast
+open Flow_parser.Flow_ast
 open Utils
 open Error
+
+(* TODO: In our fork of Flow_parser, we could be exporting also Flow_parser_utils,
+   and reduce this hole file to almost a single function using Flow_ast_mapper *)
 
 type loc = Flow_parser.Loc.t
 
 type file = Flow_parser.File_key.t
 
-type error = Flow_parser.Parser_common.Error.t
+type error = Flow_parser.Parse_error.t
 
-type parse_f = string -> file option -> loc program * (loc * error) list
+type parse_f =
+  string -> file option -> (loc, loc) Program.t * (loc * error) list
 
-type transform_f = loc program -> Syntax.exp
+type transform_f = (loc, loc) Program.t -> GJS_syntax.exp
 
 module Config = struct
   let runtime_path = "JS_PARSER_RUNTIME_PATH"
@@ -19,9 +23,9 @@ module Config = struct
 end
 
 let unfold_prog prog =
-  let Syntax.{ exp_stx; _ } = prog in
+  let GJS_syntax.{ exp_stx; _ } = prog in
   match exp_stx with
-  | Syntax.Script (use_strict, exp_list) -> (use_strict, exp_list)
+  | GJS_syntax.Script (use_strict, exp_list) -> (use_strict, exp_list)
   | _ -> failwith "expected expression to be a Script"
 
 let get_preamble () =
@@ -47,7 +51,7 @@ let get_or_raise_exn path loc (result : ('a, string) result) =
 let resolve_require_args
     (prog_path : string)
     (loc : loc)
-    (args : loc Expression.expression_or_spread list) =
+    (args : (loc, loc) Expression.expression_or_spread list) =
   let open Expression in
   let resolve_path path =
     if begins_with path "." || begins_with path ".." then
@@ -64,11 +68,13 @@ let resolve_require_args
       Error (Printf.sprintf "cannot import global module \"%s\"" path)
   in
   let resolve_path_expr = function
-    | Literal { value = String path; raw } ->
+    | Literal { value = String path; raw; comments } ->
         let resolved_path =
           get_or_raise_exn prog_path loc (resolve_path path)
         in
-        Ok (Literal { value = String resolved_path; raw }, resolved_path)
+        Ok
+          ( Literal { value = String resolved_path; raw; comments },
+            resolved_path )
     | _ -> Error "the 'id' argument must be a string"
   in
   let resolve_args = function
@@ -84,151 +90,174 @@ let resolve_require_args
   in
   get_or_raise_exn prog_path loc (resolve_args args)
 
-let rec resolve_statement prog_path (statement : loc Statement.t) =
+let rec resolve_statement prog_path (statement : (loc, loc) Statement.t) =
   let open Statement in
   let loc, stat = statement in
   let resolved_stat, req_paths =
     match stat with
-    | Block { body } ->
+    | Block { body; comments } ->
         let body, req_paths = resolve_statements prog_path body in
-        (Block { body }, req_paths)
+        (Block { body; comments }, req_paths)
     | FunctionDeclaration func ->
         let func, req_paths = resolve_function prog_path func in
         (FunctionDeclaration func, req_paths)
     | VariableDeclaration var_dec ->
         let var_dec, req_paths = resolve_variable_dec prog_path var_dec in
         (VariableDeclaration var_dec, req_paths)
-    | Expression { expression; directive } ->
+    | Expression { expression; directive; comments } ->
         let expression, req_paths = resolve_expression prog_path expression in
-        (Expression { expression; directive }, req_paths)
-    | If { test; consequent; alternate } ->
+        (Expression { expression; directive; comments }, req_paths)
+    | If { test; consequent; alternate; comments } ->
         let test, test_rps = resolve_expression prog_path test in
         let consequent, con_rps = resolve_statement prog_path consequent in
         let alternate, alt_rps =
-          opt_map (resolve_statement prog_path) alternate
+          match alternate with
+          | None -> (None, [])
+          | Some (loc, If.Alternate.{ body; comments }) ->
+              let body, alt_rps = resolve_statement prog_path body in
+              (Some (loc, If.Alternate.{ body; comments }), alt_rps)
         in
-        (If { test; consequent; alternate }, test_rps @ con_rps @ alt_rps)
-    | Labeled { label; body } ->
+        ( If { test; consequent; alternate; comments },
+          test_rps @ con_rps @ alt_rps )
+    | Labeled { label; body; comments } ->
         let body, req_paths = resolve_statement prog_path body in
-        (Labeled { label; body }, req_paths)
-    | With { _object; body } ->
+        (Labeled { label; body; comments }, req_paths)
+    | With { _object; body; comments } ->
         let _object, _object_rps = resolve_expression prog_path _object in
         let body, body_rps = resolve_statement prog_path body in
-        (With { _object; body }, _object_rps @ body_rps)
-    | Switch { discriminant; cases } ->
+        (With { _object; body; comments }, _object_rps @ body_rps)
+    | Switch { discriminant; cases; comments } ->
         let discriminant, dis_rps = resolve_expression prog_path discriminant in
         let cases, cases_rps = map (resolve_switch_case prog_path) cases in
-        (Switch { discriminant; cases }, dis_rps @ cases_rps)
-    | Throw { argument } ->
+        (Switch { discriminant; cases; comments }, dis_rps @ cases_rps)
+    | Throw { argument; comments } ->
         let argument, req_paths = resolve_expression prog_path argument in
-        (Throw { argument }, req_paths)
-    | Try { block; handler; finalizer } ->
+        (Throw { argument; comments }, req_paths)
+    | Try { block; handler; finalizer; comments } ->
         let block, block_rps = resolve_block prog_path block in
         let handler, handler_rps =
           opt_map (resolve_catch_clause prog_path) handler
         in
         let finalizer, fin_rps = opt_map (resolve_block prog_path) finalizer in
-        (Try { block; handler; finalizer }, block_rps @ handler_rps @ fin_rps)
-    | While { test; body } ->
+        ( Try { block; handler; finalizer; comments },
+          block_rps @ handler_rps @ fin_rps )
+    | While { test; body; comments } ->
         let test, test_rps = resolve_expression prog_path test in
         let body, body_rps = resolve_statement prog_path body in
-        (While { test; body }, test_rps @ body_rps)
-    | DoWhile { body; test } ->
+        (While { test; body; comments }, test_rps @ body_rps)
+    | DoWhile { body; test; comments } ->
         let body, body_rps = resolve_statement prog_path body in
         let test, test_rps = resolve_expression prog_path test in
-        (DoWhile { body; test }, body_rps @ test_rps)
-    | For { init; test; update; body } ->
+        (DoWhile { body; test; comments }, body_rps @ test_rps)
+    | For { init; test; update; body; comments } ->
         let init, init_rps = opt_map (resolve_for_init prog_path) init in
         let test, test_rps = opt_map (resolve_expression prog_path) test in
         let update, update_rps =
           opt_map (resolve_expression prog_path) update
         in
         let body, body_rps = resolve_statement prog_path body in
-        ( For { init; test; update; body },
+        ( For { init; test; update; body; comments },
           init_rps @ test_rps @ update_rps @ body_rps )
-    | ForIn { left; right; body; each } ->
+    | ForIn { left; right; body; each; comments } ->
         let left, left_rps = resolve_for_in_left prog_path left in
         let right, right_rps = resolve_expression prog_path right in
         let body, body_rps = resolve_statement prog_path body in
-        (ForIn { left; right; body; each }, left_rps @ right_rps @ body_rps)
-    | Return { argument } ->
+        ( ForIn { left; right; body; each; comments },
+          left_rps @ right_rps @ body_rps )
+    | Return { argument; comments } ->
         let argument, req_paths =
           opt_map (resolve_expression prog_path) argument
         in
-        (Return { argument }, req_paths)
+        (Return { argument; comments }, req_paths)
     | _ -> (stat, [])
   in
   ((loc, resolved_stat), req_paths)
 
-and resolve_expression prog_path (expression : loc Expression.t) =
+and resolve_expression prog_path (expression : (loc, loc) Expression.t) =
   let open Expression in
   let loc, expr = expression in
   let resolved_expr, req_paths =
     match expr with
-    | Call { callee; targs; arguments } -> (
+    | Call { callee; targs; arguments; comments } -> (
         match callee with
-        | _, Identifier (_, id) when id = SyntaxGenerator.Constants.require_f ->
+        | _, Identifier (_, { name; comments = _ })
+          when name = SyntaxGenerator.Constants.require_f ->
             let arguments, req_path =
-              resolve_require_args prog_path loc arguments
+              let loc, Expression.ArgList.{ arguments; comments } = arguments in
+              let new_args, req_path =
+                resolve_require_args prog_path loc arguments
+              in
+              ( (loc, Expression.ArgList.{ arguments = new_args; comments }),
+                req_path )
             in
-            (Call { callee; targs; arguments }, [ req_path ])
+            (Call { callee; targs; arguments; comments }, [ req_path ])
         | _ ->
             let callee, callee_rps = resolve_expression prog_path callee in
             let arguments, arg_rps =
-              map (resolve_expression_or_spread prog_path) arguments
+              let loc, Expression.ArgList.{ arguments; comments } = arguments in
+              let new_args, args_rps =
+                map (resolve_expression_or_spread prog_path) arguments
+              in
+              ( (loc, Expression.ArgList.{ arguments = new_args; comments }),
+                args_rps )
             in
-            (Call { callee; targs; arguments }, callee_rps @ arg_rps) )
-    | New { callee; targs; arguments } ->
+            (Call { callee; targs; arguments; comments }, callee_rps @ arg_rps)
+        )
+    | New { callee; targs; arguments; comments } ->
         let callee, callee_rps = resolve_expression prog_path callee in
         let arguments, arg_rps =
-          map (resolve_expression_or_spread prog_path) arguments
+          match arguments with
+          | None -> (None, [])
+          | Some (loc, ArgList.{ arguments; comments }) ->
+              let arguments, rps =
+                map (resolve_expression_or_spread prog_path) arguments
+              in
+              (Some (loc, ArgList.{ arguments; comments }), rps)
         in
-        (New { callee; targs; arguments }, callee_rps @ arg_rps)
-    | Unary { operator; prefix; argument } ->
+        (New { callee; targs; arguments; comments }, callee_rps @ arg_rps)
+    | Unary { operator; argument; comments } ->
         let argument, req_paths = resolve_expression prog_path argument in
-        (Unary { operator; prefix; argument }, req_paths)
-    | Binary { operator; left; right } ->
+        (Unary { operator; argument; comments }, req_paths)
+    | Binary { operator; left; right; comments } ->
         let left, left_rps = resolve_expression prog_path left in
         let right, right_rps = resolve_expression prog_path right in
-        (Binary { operator; left; right }, left_rps @ right_rps)
-    | Assignment { operator; left; right } ->
+        (Binary { operator; left; right; comments }, left_rps @ right_rps)
+    | Assignment { operator; left; right; comments } ->
         let left, left_rps = resolve_pattern prog_path left in
         let right, right_rps = resolve_expression prog_path right in
-        (Assignment { operator; left; right }, left_rps @ right_rps)
-    | Logical { operator; left; right } ->
+        (Assignment { operator; left; right; comments }, left_rps @ right_rps)
+    | Logical { operator; left; right; comments } ->
         let left, left_rps = resolve_expression prog_path left in
         let right, right_rps = resolve_expression prog_path right in
-        (Logical { operator; left; right }, left_rps @ right_rps)
-    | Update { operator; argument; prefix } ->
+        (Logical { operator; left; right; comments }, left_rps @ right_rps)
+    | Update { operator; argument; prefix; comments } ->
         let argument, req_paths = resolve_expression prog_path argument in
-        (Update { operator; argument; prefix }, req_paths)
-    | Member { _object; property; computed } ->
+        (Update { operator; argument; prefix; comments }, req_paths)
+    | Member { _object; property; comments } ->
         let _object, _object_rps = resolve_expression prog_path _object in
         let property, property_rps = resolve_member_prop prog_path property in
-        (Member { _object; property; computed }, _object_rps @ property_rps)
-    | Object { properties } ->
+        (Member { _object; property; comments }, _object_rps @ property_rps)
+    | Object { properties; comments } ->
         let properties, req_paths =
           map (resolve_object_prop prog_path) properties
         in
-        (Object { properties }, req_paths)
-    | Sequence { expressions } ->
+        (Object { properties; comments }, req_paths)
+    | Sequence { expressions; comments } ->
         let expressions, req_paths =
           resolve_expressions prog_path expressions
         in
-        (Sequence { expressions }, req_paths)
-    | Conditional { test; consequent; alternate } ->
+        (Sequence { expressions; comments }, req_paths)
+    | Conditional { test; consequent; alternate; comments } ->
         let test, test_rps = resolve_expression prog_path test in
         let consequent, con_rps = resolve_expression prog_path consequent in
         let alternate, alt_rps = resolve_expression prog_path alternate in
-        ( Conditional { test; consequent; alternate },
+        ( Conditional { test; consequent; alternate; comments },
           test_rps @ con_rps @ alt_rps )
-    | Array { elements } ->
+    | Array { elements; comments } ->
         let elements, req_paths =
-          map
-            (fun elem -> opt_map (resolve_expression_or_spread prog_path) elem)
-            elements
+          map (resolve_array_element prog_path) elements
         in
-        (Array { elements }, req_paths)
+        (Array { elements; comments }, req_paths)
     | Function func ->
         let func, req_paths = resolve_function prog_path func in
         (Function func, req_paths)
@@ -236,15 +265,25 @@ and resolve_expression prog_path (expression : loc Expression.t) =
   in
   ((loc, resolved_expr), req_paths)
 
-and resolve_expression_or_spread
-    prog_path (expr_or_spr : loc Expression.expression_or_spread) =
-  match expr_or_spr with
+and resolve_array_element
+    prog_path (element : (loc, loc) Expression.Array.element) =
+  let open Expression.Array in
+  match element with
   | Expression expr ->
       let expr, req_paths = resolve_expression prog_path expr in
       (Expression expr, req_paths)
   | Spread spr      -> (Spread spr, [])
+  | Hole h          -> (Hole h, [])
 
-and resolve_pattern prog_path (pattern : loc Pattern.t) =
+and resolve_expression_or_spread
+    prog_path (expr_or_spr : (loc, loc) Expression.expression_or_spread) =
+  match expr_or_spr with
+  | Expression.Expression expr ->
+      let expr, req_paths = resolve_expression prog_path expr in
+      (Expression expr, req_paths)
+  | Spread spr                 -> (Spread spr, [])
+
+and resolve_pattern prog_path (pattern : (loc, loc) Pattern.t) =
   let open Pattern in
   let loc, ptrn = pattern in
   let resolved_pattern, req_paths =
@@ -256,7 +295,7 @@ and resolve_pattern prog_path (pattern : loc Pattern.t) =
   in
   ((loc, resolved_pattern), req_paths)
 
-and resolve_function prog_path (func : loc Function.t) =
+and resolve_function prog_path (func : (loc, loc) Function.t) =
   let open Function in
   let resolve_func_body = function
     | BodyBlock block     ->
@@ -269,7 +308,8 @@ and resolve_function prog_path (func : loc Function.t) =
   let body, req_paths = resolve_func_body func.body in
   ({ func with body }, req_paths)
 
-and resolve_variable_dec prog_path (dec : loc Statement.VariableDeclaration.t) =
+and resolve_variable_dec
+    prog_path (dec : (loc, loc) Statement.VariableDeclaration.t) =
   let open Statement.VariableDeclaration in
   let resolve_dec dec =
     let loc, Declarator.{ id; init } = dec in
@@ -279,7 +319,7 @@ and resolve_variable_dec prog_path (dec : loc Statement.VariableDeclaration.t) =
   let declarations, req_paths = map resolve_dec dec.declarations in
   ({ dec with declarations }, req_paths)
 
-and resolve_for_init prog_path (init : loc Statement.For.init) =
+and resolve_for_init prog_path (init : (loc, loc) Statement.For.init) =
   let open Statement.For in
   let resolve = function
     | InitDeclaration (loc, var_dec) ->
@@ -291,7 +331,7 @@ and resolve_for_init prog_path (init : loc Statement.For.init) =
   in
   resolve init
 
-and resolve_for_in_left prog_path (left : loc Statement.ForIn.left) =
+and resolve_for_in_left prog_path (left : (loc, loc) Statement.ForIn.left) =
   let open Statement.ForIn in
   let resolve = function
     | LeftDeclaration (loc, var_dec) ->
@@ -303,27 +343,28 @@ and resolve_for_in_left prog_path (left : loc Statement.ForIn.left) =
   in
   resolve left
 
-and resolve_switch_case prog_path (case : loc Statement.Switch.Case.t) =
+and resolve_switch_case prog_path (case : (loc, loc) Statement.Switch.Case.t) =
   let open Statement.Switch.Case in
   let loc, case = case in
   let test, test_rps = opt_map (resolve_expression prog_path) case.test in
   let consequent, con_rps = resolve_statements prog_path case.consequent in
-  ((loc, { test; consequent }), test_rps @ con_rps)
+  ((loc, { test; consequent; comments = case.comments }), test_rps @ con_rps)
 
 and resolve_catch_clause
-    prog_path (catch_clause : loc Statement.Try.CatchClause.t) =
+    prog_path (catch_clause : (loc, loc) Statement.Try.CatchClause.t) =
   let open Statement.Try.CatchClause in
-  let loc, { param; body } = catch_clause in
+  let loc, { param; body; comments } = catch_clause in
   let body, req_paths = resolve_block prog_path body in
-  ((loc, { param; body }), req_paths)
+  ((loc, { param; body; comments }), req_paths)
 
-and resolve_block prog_path (block : loc * loc Statement.Block.t) =
+and resolve_block prog_path (block : loc * (loc, loc) Statement.Block.t) =
   let open Statement.Block in
-  let loc, { body } = block in
+  let loc, { body; comments } = block in
   let body, req_paths = resolve_statements prog_path body in
-  ((loc, { body }), req_paths)
+  ((loc, { body; comments }), req_paths)
 
-and resolve_member_prop prog_path (property : loc Expression.Member.property) =
+and resolve_member_prop
+    prog_path (property : (loc, loc) Expression.Member.property) =
   let open Expression.Member in
   let resolve = function
     | PropertyExpression expr ->
@@ -333,7 +374,8 @@ and resolve_member_prop prog_path (property : loc Expression.Member.property) =
   in
   resolve property
 
-and resolve_object_prop prog_path (property : loc Expression.Object.property) =
+and resolve_object_prop
+    prog_path (property : (loc, loc) Expression.Object.property) =
   match property with
   | Property (loc, prop)  ->
       let open Expression.Object.Property in
@@ -347,24 +389,25 @@ and resolve_object_prop prog_path (property : loc Expression.Object.property) =
       (Property (loc, resolved_prop), req_paths)
   | SpreadProperty spread -> (SpreadProperty spread, [])
 
-and resolve_statements prog_path (statements : loc Statement.t list) =
+and resolve_statements prog_path (statements : (loc, loc) Statement.t list) =
   map (resolve_statement prog_path) statements
 
-and resolve_expressions prog_path (expressions : loc Expression.t list) =
+and resolve_expressions prog_path (expressions : (loc, loc) Expression.t list) =
   map (resolve_expression prog_path) expressions
 
 (** Resolves the paths used in any require() calls within the program, returning
     the modified AST (with all the paths having been checked to exist and 
     normalised) as well as the paths themselves. *)
-let resolve_imports prog_path (prog : loc program) =
-  let loc, statements, cmnts = prog in
+let resolve_imports prog_path (prog : (loc, loc) Program.t) =
+  let loc, Program.{ statements; comments; all_comments } = prog in
   let resolved_stats, req_paths = resolve_statements prog_path statements in
-  ((loc, resolved_stats, cmnts), req_paths)
+  ( (loc, Program.{ statements = resolved_stats; comments; all_comments }),
+    req_paths )
 
 (** Wraps the module code inside special syntax that hides its variables from
     the global scope and exposes it to the CommonJS [module] and [exports] 
     objects. *)
-let augment exp_list use_strict filename is_main : Syntax.exp list =
+let augment exp_list use_strict filename is_main : GJS_syntax.exp list =
   let open SyntaxGenerator in
   let dirname = Filename.dirname filename in
   let module_init = module_init_assign filename dirname in
@@ -380,7 +423,7 @@ let augment exp_list use_strict filename is_main : Syntax.exp list =
 
 (** Add the code which, among other things, provides the definiton of the 
     global [require] function. *)
-let add_preamble exp_list : Syntax.exp =
+let add_preamble exp_list : GJS_syntax.exp =
   let _, preamble_exp_list = unfold_prog (get_preamble ()) in
   SyntaxGenerator.mk_exp (Script (false, preamble_exp_list @ exp_list))
 

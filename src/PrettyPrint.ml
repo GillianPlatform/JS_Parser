@@ -1,5 +1,5 @@
 open List
-open Syntax
+open GJS_syntax
 
 let string_of_comparison_op x =
   match x with
