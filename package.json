@@ -28,7 +28,7 @@
     "build:doc": "esy -C sh -c \"dune build @doc && cp -R _build/default/_doc/ doc/\""
   },
   "dependencies": {
-    "@opam/flow_parser": "giltho/flow:flow_parser.opam#5f4a473",
+    "@opam/flow_parser": "giltho/flow#5f4a473",
     "@opam/dune": "*",
     "ocaml": ">=4.6.0",
     "@opam/batteries": "^3.0.0"
