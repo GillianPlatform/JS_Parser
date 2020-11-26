@@ -1,3 +1,15 @@
+module Loc : sig
+  type file_key
+
+  type position = { line : int; column : int }
+
+  type t = { source : file_key option; start : position; _end : position }
+
+  val file_key_to_string : file_key -> string
+
+  val pp : Format.formatter -> t -> unit
+end
+
 module Syntax : sig
   exception CannotHappen
 
@@ -165,18 +177,6 @@ module PrettyPrint : sig
   val string_of_case : bool -> Syntax.switch_case * Syntax.exp -> string
 
   val string_of_exp_syntax : Syntax.exp_syntax -> Syntax.var
-end
-
-module Loc : sig
-  type file_key
-
-  type position = { line : int; column : int }
-
-  type t = { source : file_key option; start : position; _end : position }
-
-  val file_key_to_string : file_key -> string
-
-  val pp : Format.formatter -> t -> unit
 end
 
 module Error : sig
