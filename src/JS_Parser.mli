@@ -129,8 +129,42 @@ module Syntax : sig
   val script_and_strict : exp_syntax -> bool
 end
 
-module PrettyPrint : module type of struct
-  include PrettyPrint
+module PrettyPrint : sig
+  val string_of_comparison_op : Syntax.comparison_op -> string
+
+  val string_of_bool_op : Syntax.bool_op -> string
+
+  val string_of_arith_op : Syntax.arith_op -> string
+
+  val string_of_bin_op : Syntax.bin_op -> string
+
+  val string_of_unary_op : Syntax.unary_op -> string
+
+  val string_of_var : 'a -> 'a
+
+  val string_of_vars : string list -> string
+
+  val string_of_annot_type : Syntax.annotation_type -> string
+
+  val string_of_annot : Syntax.annotation -> string
+
+  val string_of_annots : Syntax.annotation list -> string
+
+  val string_of_propname : Syntax.propname -> string
+
+  val string_of_exp : bool -> Syntax.exp -> string
+
+  val string_of_var_in_dec :
+    bool -> Syntax.var * Syntax.exp option -> Syntax.var
+
+  val string_of_exp_syntax_1 : Syntax.exp_syntax -> bool -> Syntax.var
+
+  val string_of_catch_finally :
+    bool -> (string * Syntax.exp) option -> Syntax.exp option -> string
+
+  val string_of_case : bool -> Syntax.switch_case * Syntax.exp -> string
+
+  val string_of_exp_syntax : Syntax.exp_syntax -> Syntax.var
 end
 
 module Loc : sig
