@@ -6,6 +6,18 @@ module PrettyPrint : module type of struct
   include PrettyPrint
 end
 
+module Loc : sig
+  type position = { line : int; column : int }
+
+  type t = {
+    source : Flow_parser.File_key.t option;
+    start : position;
+    _end : position;
+  }
+
+  val pp : Format.formatter -> t -> unit
+end
+
 module Error : sig
   type t =
     | Overlapping_Syntax
