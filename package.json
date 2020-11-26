@@ -39,6 +39,7 @@
     "@opam/ounit": "*",
     "@opam/odoc": "*",
     "@opam/utop": "*",
-    "@opam/ocamlformat": "*"
+    "@opam/ocamlformat": "*",
+    "@opam/cmitomli": "*"
   }
 }
