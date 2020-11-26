@@ -7,13 +7,13 @@ module PrettyPrint : module type of struct
 end
 
 module Loc : sig
+  type file_key
+
   type position = { line : int; column : int }
 
-  type t = {
-    source : Flow_parser.File_key.t option;
-    start : position;
-    _end : position;
-  }
+  type t = { source : file_key option; start : position; _end : position }
+
+  val file_key_to_string : file_key -> string
 
   val pp : Format.formatter -> t -> unit
 end
