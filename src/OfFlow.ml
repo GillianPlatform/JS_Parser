@@ -16,7 +16,7 @@ exception CannotHappen of string
    We only care about the parts of that AST that were available in ES5, all the rest will raise a `NotEcmaScript5` exception.
 
    Moreover, we part of the parsing of JS Logic annotations here. In particular, the `flow-parser` separates the comments from the code, althoug it gives information
-   about where said annotations are.r
+   about where said annotations are.
    Each transforming function takes the possible annotations that will be attached to the produced content. Then it detaches its own annotations from the annotations
    of its child(ren) by selecting only the annotations that are happening before the children.
 *)

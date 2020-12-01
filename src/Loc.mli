@@ -8,6 +8,8 @@ type t = Flow_parser.Loc.t = {
   _end : position;
 }
 
+val none : t
+
 val file_key_to_string : file_key -> string
 
 val pp : Format.formatter -> t -> unit

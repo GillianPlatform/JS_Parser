@@ -3,8 +3,8 @@ open JS_Parser.Syntax
 open JS_Parser
 
 let on_first_line n =
-  let pos = Flow_parser.Loc.{ line = 0; column = n } in
-  Flow_parser.Loc.{ start = pos; _end = pos; source = None }
+  let pos = Loc.{ line = 0; column = n } in
+  Loc.{ start = pos; _end = pos; source = None }
 
 let mk_exp s o = JS_Parser.Syntax.mk_exp s o []
 
@@ -53,10 +53,10 @@ let rec exp_stx_eq e1 e2 =
       && exp_stx_eq e e'
   | Try (e, o, oe), Try (e', o', oe') ->
       exp_stx_eq e e'
-      && ( match (o, o') with
+      && (match (o, o') with
          | None, None                 -> true
          | Some (s, e), Some (s', e') -> s = s' && exp_stx_eq e e'
-         | _, _                       -> false )
+         | _, _                       -> false)
       && opt_exp_eq oe oe'
   | Switch (e, l), Switch (e', l') ->
       exp_stx_eq e e'
@@ -82,7 +82,7 @@ let assert_equal' = assert_equal
 
 let assert_exp_eq = assert_equal' ~cmp:exp_stx_eq
 
-let add_script e = mk_exp (Script (false, [ e ])) Flow_parser.Loc.none
+let add_script e = mk_exp (Script (false, [ e ])) Loc.none
 
 let rm_node e =
   match e.exp_stx with
@@ -93,15 +93,13 @@ let rm_node e =
 
 let test_var test_ctx =
   let exp = parse_string_exn "var x" in
-  assert_exp_eq
-    (add_script (mk_exp (VarDec [ ("x", None) ]) Flow_parser.Loc.none))
-    exp
+  assert_exp_eq (add_script (mk_exp (VarDec [ ("x", None) ]) Loc.none)) exp
 
 let test_var_value test_ctx =
   let exp = parse_string_exn "var x = 5" in
   let num_5 = mk_exp (Num 5.0) (on_first_line 8) in
   assert_exp_eq
-    (add_script (mk_exp (VarDec [ ("x", Some num_5) ]) Flow_parser.Loc.none))
+    (add_script (mk_exp (VarDec [ ("x", Some num_5) ]) Loc.none))
     exp
 
 let test_var_list test_ctx =
@@ -109,36 +107,28 @@ let test_var_list test_ctx =
   let num_5 = mk_exp (Num 5.0) (on_first_line 8) in
   let nul = mk_exp Null (on_first_line 15) in
   let vardec =
-    mk_exp (VarDec [ ("x", Some num_5); ("y", Some nul) ]) Flow_parser.Loc.none
+    mk_exp (VarDec [ ("x", Some num_5); ("y", Some nul) ]) Loc.none
   in
   assert_exp_eq (add_script vardec) exp
 
 let test_regexp test_ctx =
   let exp = parse_string_exn "/^\\s+/" in
-  assert_exp_eq
-    (add_script (mk_exp (RegExp ("^\\s+", "")) Flow_parser.Loc.none))
-    exp
+  assert_exp_eq (add_script (mk_exp (RegExp ("^\\s+", "")) Loc.none)) exp
 
 let test_regexp_with_flags test_ctx =
   let exp = parse_string_exn "/^\\s+/g" in
-  assert_exp_eq
-    (add_script (mk_exp (RegExp ("^\\s+", "g")) Flow_parser.Loc.none))
-    exp
+  assert_exp_eq (add_script (mk_exp (RegExp ("^\\s+", "g")) Loc.none)) exp
 
 let test_not test_ctx =
   let exp = parse_string_exn "!selector" in
   let selector = mk_exp (Var "selector") (on_first_line 1) in
-  assert_exp_eq
-    (add_script (mk_exp (Unary_op (Not, selector)) Flow_parser.Loc.none))
-    exp
+  assert_exp_eq (add_script (mk_exp (Unary_op (Not, selector)) Loc.none)) exp
 
 let test_caccess test_ctx =
   let exp = parse_string_exn "this[0]" in
-  let this = mk_exp This Flow_parser.Loc.none in
+  let this = mk_exp This Loc.none in
   let zero = mk_exp (Num 0.0) (on_first_line 5) in
-  assert_exp_eq
-    (add_script (mk_exp (CAccess (this, zero)) Flow_parser.Loc.none))
-    exp
+  assert_exp_eq (add_script (mk_exp (CAccess (this, zero)) Loc.none)) exp
 
 let test_and test_ctx =
   let exp = parse_string_exn "a && b" in

@@ -8,6 +8,8 @@ type t = Flow_parser.Loc.t = {
   _end : position;
 }
 
+let none = Flow_parser.Loc.none
+
 let file_key_to_string = Flow_parser.File_key.to_string
 
 let pp : Format.formatter -> t -> unit = Flow_parser.Loc.pp

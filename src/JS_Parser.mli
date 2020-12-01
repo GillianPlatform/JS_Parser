@@ -5,6 +5,8 @@ module Loc : sig
 
   type t = { source : file_key option; start : position; _end : position }
 
+  val none : t
+
   val file_key_to_string : file_key -> string
 
   val pp : Format.formatter -> t -> unit
