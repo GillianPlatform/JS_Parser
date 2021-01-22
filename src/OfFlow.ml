@@ -61,11 +61,10 @@ let make_annotation (atype, adesc) =
     | "biabduce"      -> Some BiAbduce
     | "call"          -> Some Call
     | "JSIL"          -> Some JSIL_only
+    | "import"        -> Some Import
     | _               -> None
   in
-  match atype with
-  | None       -> None
-  | Some atype -> Some { annot_type = atype; annot_formula = adesc }
+  Option.map (fun annot_type -> { annot_type; annot_formula = adesc }) atype
 
 let get_annotations (comments : loc Comment.t list) :
     (loc * GJS_syntax.annotation list) list =
@@ -114,7 +113,7 @@ let get_annotations (comments : loc Comment.t list) :
     | a :: r -> (
         match a with
         | None   -> filter_and_get r
-        | Some x -> x :: filter_and_get r )
+        | Some x -> x :: filter_and_get r)
     | []     -> []
   in
   let annot_pairs_clean = mapkeep filter_and_get annot_pairs in
@@ -130,7 +129,7 @@ let get_directives st_lst =
     | (_, a) :: rp -> (
         match a with
         | Statement.Expression { directive = Some d; _ } -> loop (d :: curr) rp
-        | _ -> curr (* There is not more directives *) )
+        | _ -> curr (* There is not more directives *))
   in
   List.rev (loop [] st_lst)
 
@@ -492,7 +491,7 @@ and transform_expression
       | Expression.Unary.Delete -> mk_exp (Delete trans_arg) loc leading_annots
       | o                       ->
           let trans_op = transform_unary_op loc o in
-          mk_exp (Unary_op (trans_op, trans_arg)) loc leading_annots )
+          mk_exp (Unary_op (trans_op, trans_arg)) loc leading_annots)
   | Expression.(Binary Binary.{ left; right; operator; _ }) ->
       let leftloc, _ = left in
       let left_annots, right_annots =
@@ -532,7 +531,7 @@ and transform_expression
           let trans_op = transform_assignment_op loc o in
           mk_exp
             (AssignOp (trans_left, trans_op, trans_right))
-            loc leading_annots )
+            loc leading_annots)
   | Expression.(Logical Logical.{ left; right; operator; _ }) ->
       let leftloc, _ = left in
       let left_annots, right_annots =
@@ -569,7 +568,7 @@ and transform_expression
       | PropertyPrivateName (l, _) ->
           raise
             (ParserError
-               (NotEcmaScript5 ("Private properties are not part of ES5", l))) )
+               (NotEcmaScript5 ("Private properties are not part of ES5", l))))
   | Expression.This _ ->
       let () = check_unused_annots loc inner_annots in
       mk_exp This loc leading_annots
@@ -660,7 +659,7 @@ and transform_expression
                 in
                 Some (transform_expression ~parent_strict this_annots exp)
                 :: trans_els_opt (char_after le) rest_annots r
-            | None     -> None :: trans_els_opt start_pos annots r )
+            | None     -> None :: trans_els_opt start_pos annots r)
       in
       let trans_els = trans_els_opt first_pos inner_annots expr_opt_els in
       mk_exp (Array trans_els) loc leading_annots
@@ -763,7 +762,7 @@ and create_assignment lpat pattern exp =
                           ( "ES5: RestElement not supported in object pattern \
                              assignment",
                             lpat ))))
-            properties )
+            properties)
   | Array { elements; _ } -> (
       let open Flow_parser.Flow_ast.Pattern.Array in
       match exp with
@@ -836,7 +835,7 @@ and create_assignment lpat pattern exp =
                                 ( "ES5: RestElement not supported in object \
                                    pattern assignment",
                                   lpat ))))
-                  elements) )
+                  elements))
 
 and transform_variable_decl
     ~parent_strict declaration total_loc leading_annots inner_annots =

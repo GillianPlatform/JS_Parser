@@ -62,22 +62,24 @@ module Syntax : sig
   type var = string
 
   type annotation_type =
-    | TopRequires
-    | TopEnsures
-    | TopEnsuresErr
-    | Requires
-    | Ensures
-    | EnsuresErr
-    | Id
-    | Codename
-    | Pred
-    | OnlySpec
+    | Import  (** Import a JSIL or GIL file *)
+    | TopRequires  (** Precondition of global  *)
+    | TopEnsures  (** Normal postcondition of global *)
+    | TopEnsuresErr  (** Error postcondition of global *)
+    | Requires  (** Precondition of function *)
+    | Ensures  (** Normal postcondition of function *)
+    | EnsuresErr  (** Error postcondition of function *)
+    | Id  (** Function identifier *)
+    | Codename  (** Codename *)
+    | Pred  (** Predicate *)
+    | OnlySpec  (** Specification without function body *)
     | Invariant
     | Lemma
     | Tactic
-    | BiAbduce
-    | Call
-    | JSIL_only
+        (** General tactic: fold, unfold, recursive unfold, assert, flash, callspec, and many more to come... *)
+    | BiAbduce  (** Bi-abduction indicator *)
+    | Call  (** Function call with substitution *)
+    | JSIL_only  (** Function called in JSIL only *)
 
   type annotation = { annot_type : annotation_type; annot_formula : string }
 

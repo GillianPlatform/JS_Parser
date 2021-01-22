@@ -86,7 +86,7 @@ let resolve_require_args
               get_or_raise_exn prog_path loc (resolve_path_expr expr)
             in
             Ok (Expression (loc, resolved_expr) :: rest, resolved_path)
-        | Spread _               -> Error "a spread expression cannot be used" )
+        | Spread _               -> Error "a spread expression cannot be used")
   in
   get_or_raise_exn prog_path loc (resolve_args args)
 
@@ -201,8 +201,7 @@ and resolve_expression prog_path (expression : (loc, loc) Expression.t) =
               ( (loc, Expression.ArgList.{ arguments = new_args; comments }),
                 args_rps )
             in
-            (Call { callee; targs; arguments; comments }, callee_rps @ arg_rps)
-        )
+            (Call { callee; targs; arguments; comments }, callee_rps @ arg_rps))
     | New { callee; targs; arguments; comments } ->
         let callee, callee_rps = resolve_expression prog_path callee in
         let arguments, arg_rps =

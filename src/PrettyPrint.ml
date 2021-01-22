@@ -56,6 +56,7 @@ let string_of_vars xs = String.concat "," xs
 
 let string_of_annot_type atype =
   match atype with
+  | Import        -> "@import"
   | TopRequires   -> "@toprequires"
   | TopEnsures    -> "@topensures"
   | TopEnsuresErr -> "@topensureserr"
@@ -136,7 +137,7 @@ and string_of_exp_syntax_1 expstx with_annot =
       | Post_Decr | Post_Incr ->
           Printf.sprintf "%s %s" (f e) (string_of_unary_op op)
       | _                     -> Printf.sprintf "%s %s" (string_of_unary_op op)
-                                   (f e) )
+                                   (f e))
   | BinOp (e1, op, e2)         ->
       Printf.sprintf "(%s) %s (%s)" (f e1) (string_of_bin_op op) (f e2)
   | Access (e, x)              -> Printf.sprintf "(%s).%s" (f e) x
@@ -206,10 +207,9 @@ and string_of_exp_syntax_1 expstx with_annot =
                                     (String.concat ";\n" (map f es))
 
 and string_of_catch_finally with_annot catch finally =
-  ( match catch with
+  (match catch with
   | None        -> ""
-  | Some (v, e) -> Printf.sprintf "catch (%s) %s" v (string_of_exp with_annot e)
-  )
+  | Some (v, e) -> Printf.sprintf "catch (%s) %s" v (string_of_exp with_annot e))
   ^
   match finally with
   | None   -> ""
