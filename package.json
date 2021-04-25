@@ -28,14 +28,14 @@
     "build:doc": "esy -C sh -c \"dune build @doc && cp -R _build/default/_doc/ doc/\""
   },
   "dependencies": {
-    "@opam/flow_parser": "giltho/flow#5f4a473",
+    "@opam/flow_parser": "giltho/flow#ac42cb1",
     "@opam/dune": "*",
     "ocaml": ">=4.6.0",
     "@opam/batteries": "^3.0.0"
   },
   "devDependencies": {
     "@opam/ocaml-lsp-server": "*",
-    "ocaml": "4.11.1000",
+    "ocaml": "4.12.0",
     "@opam/ounit": "*",
     "@opam/odoc": "*",
     "@opam/utop": "*",
