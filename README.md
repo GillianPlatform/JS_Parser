@@ -1,6 +1,8 @@
 # JavaScript Parser
 [![Build Status](https://travis-ci.org/resource-reasoning/JS_Parser.svg?branch=master)](https://travis-ci.org/resource-reasoning/JS_Parser)
 
+THIS IS NOW DEPRECATED AS JS_PARSER HAS BEEN INTEGRATED INTO GILLIAN-JS
+
 Javascript Parser, based on flow-parser, which adds support for JS_Logic from the JaVerT toolchain.
 
 ## Dependencies
